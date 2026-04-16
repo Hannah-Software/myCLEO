@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useProactiveAlerts } from '../../hooks/useProactiveAlerts';
 
 type Phase = 'A' | 'B' | 'C' | 'D' | 'E';
 
@@ -37,6 +38,7 @@ export default function CheckInScreen() {
   const [state, setState] = useState<OrchestratorState | null>(null);
   const [loading, setLoading] = useState(true);
   const [signaling, setSignaling] = useState(false);
+  const { alerts, dismissAlert, getCriticalAlerts } = useProactiveAlerts();
 
   useEffect(() => {
     fetchState();
@@ -103,8 +105,27 @@ export default function CheckInScreen() {
   const currentPhaseColor = PHASE_COLORS[state.phase];
   const currentPhaseName = PHASE_NAMES[state.phase];
 
+  const criticalAlerts = getCriticalAlerts();
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Proactive Alerts */}
+      {criticalAlerts.length > 0 && (
+        <View style={styles.alertsContainer}>
+          {criticalAlerts.slice(0, 2).map((alert) => (
+            <View key={alert.id} style={[styles.alertBanner, { borderLeftColor: '#FF6B6B' }]}>
+              <View style={styles.alertContent}>
+                <Text style={styles.alertTitle}>{alert.title}</Text>
+                <Text style={styles.alertDescription} numberOfLines={1}>{alert.description}</Text>
+              </View>
+              <TouchableOpacity onPress={() => dismissAlert(alert.id)}>
+                <Ionicons name="close-circle" size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Current Phase Display */}
       <View style={[styles.phaseCard, { backgroundColor: currentPhaseColor }]}>
         <Text style={styles.phaseLabel}>Currently in</Text>
@@ -392,5 +413,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     textTransform: 'capitalize',
+  },
+  alertsContainer: {
+    marginBottom: 20,
+    gap: 8,
+  },
+  alertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF5F5',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+  },
+  alertContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  alertTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  alertDescription: {
+    fontSize: 11,
+    color: '#666',
   },
 });

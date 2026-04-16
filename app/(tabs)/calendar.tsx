@@ -1,9 +1,19 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLinearTasks } from '../../hooks/useLinearTasks';
+import { useCalendarEvents } from '../../hooks/useCalendarEvents';
+import { useState } from 'react';
 
 export default function CalendarScreen() {
-  const { tasks, loading } = useLinearTasks('IVA');
+  const { tasks, loading: tasksLoading } = useLinearTasks('IVA');
+  const { events, loading: eventsLoading, refresh: refreshCalendar } = useCalendarEvents();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshCalendar();
+    setRefreshing(false);
+  };
 
   const getPriorityColor = (priority: number) => {
     if (priority <= 1) return '#FF6B6B';
@@ -23,13 +33,67 @@ export default function CalendarScreen() {
     }
   };
 
+  const getCalendarIcon = (calendar: 'work' | 'family') => {
+    return calendar === 'work' ? 'briefcase' : 'heart';
+  };
+
+  const getCalendarColor = (calendar: 'work' | 'family') => {
+    return calendar === 'work' ? '#45B7D1' : '#FF6B6B';
+  };
+
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      {/* Today's Schedule Timeline */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Today's Timeline</Text>
+
+        {eventsLoading ? (
+          <Text style={styles.loadingText}>Loading calendar...</Text>
+        ) : events.length === 0 ? (
+          <Text style={styles.emptyText}>No calendar events today</Text>
+        ) : (
+          <View style={styles.eventsList}>
+            {events.map((event, index) => (
+              <View key={event.id} style={[styles.eventItem, index > 0 && styles.eventItemBorder]}>
+                <View style={styles.eventTimeBlock}>
+                  <Text style={styles.eventTime}>{formatTime(event.startTime)}</Text>
+                  {!event.isAllDay && (
+                    <Text style={styles.eventDuration}>{formatTime(event.endTime)}</Text>
+                  )}
+                </View>
+                <View style={styles.eventDot} />
+                <View style={styles.eventContent}>
+                  <Text style={styles.eventTitle} numberOfLines={2}>{event.title}</Text>
+                  {event.location && (
+                    <Text style={styles.eventLocation}>{event.location}</Text>
+                  )}
+                  <View style={styles.eventCalendarBadge}>
+                    <Ionicons name={getCalendarIcon(event.calendar)} size={12} color={getCalendarColor(event.calendar)} />
+                    <Text style={[styles.eventCalendarLabel, { color: getCalendarColor(event.calendar) }]}>
+                      {event.calendar === 'work' ? 'Work' : 'Family'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
       {/* Today's Top 5 Priorities */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Today's Top 5</Text>
-        
-        {loading ? (
+        <Text style={styles.sectionTitle}>Today's Top 5 Tasks</Text>
+
+        {tasksLoading ? (
           <Text style={styles.loadingText}>Loading tasks...</Text>
         ) : tasks.length === 0 ? (
           <Text style={styles.emptyText}>No tasks for today</Text>
@@ -49,16 +113,6 @@ export default function CalendarScreen() {
             ))}
           </View>
         )}
-      </View>
-
-      {/* Placeholder for calendar view */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Calendar View</Text>
-        <View style={styles.placeholder}>
-          <Ionicons name="calendar" size={48} color="#ccc" />
-          <Text style={styles.placeholderText}>Calendar integration coming soon</Text>
-          <Text style={styles.placeholderSubtext}>Google Calendar + Cozi sync</Text>
-        </View>
       </View>
     </ScrollView>
   );
@@ -93,6 +147,73 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     paddingVertical: 16,
+  },
+  eventsList: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 8,
+    overflow: 'hidden',
+    paddingVertical: 8,
+  },
+  eventItem: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  eventItemBorder: {
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  eventTimeBlock: {
+    width: 50,
+    alignItems: 'flex-start',
+  },
+  eventTime: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#333',
+  },
+  eventDuration: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 2,
+  },
+  eventDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4ECDC4',
+    marginTop: 2,
+  },
+  eventContent: {
+    flex: 1,
+  },
+  eventTitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#333',
+    lineHeight: 18,
+  },
+  eventLocation: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 4,
+  },
+  eventCalendarBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  eventCalendarLabel: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   tasksList: {
     backgroundColor: '#f8f8f8',
@@ -134,22 +255,5 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  placeholder: {
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    paddingVertical: 32,
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#999',
-    marginTop: 12,
-  },
-  placeholderSubtext: {
-    fontSize: 12,
-    color: '#bbb',
-    marginTop: 4,
   },
 });
