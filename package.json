@@ -1,0 +1,24 @@
+{
+  "name": "myCLEO",
+  "description": "myCLEO — Your Co-Life CEO. Consumer mobile app packaging CLEO as personal life OS.",
+  "version": "0.0.1",
+  "main": "expo-router/entry",
+  "scripts": {
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "dev": "expo start",
+    "test": "jest"
+  },
+  "dependencies": {
+    "expo": "^51.0.0",
+    "expo-router": "^3.5.0",
+    "react": "^18.2.0",
+    "react-native": "^0.74.0",
+    "@op-engineering/op-sqlite": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "typescript": "^5.4.0"
+  }
+}
