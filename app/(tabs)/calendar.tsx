@@ -2,11 +2,15 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } 
 import { Ionicons } from '@expo/vector-icons';
 import { useLinearTasks } from '../../hooks/useLinearTasks';
 import { useCalendarEvents } from '../../hooks/useCalendarEvents';
+import { useFamily } from '../../hooks/useFamily';
+import { useCustodyReminders } from '../../hooks/useCustodyReminders';
 import { useState } from 'react';
 
 export default function CalendarScreen() {
   const { tasks, loading: tasksLoading } = useLinearTasks('IVA');
   const { events, loading: eventsLoading, refresh: refreshCalendar } = useCalendarEvents();
+  const { custodySchedule, loading: familyLoading } = useFamily();
+  const { upcomingReminders } = useCustodyReminders(custodySchedule);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
@@ -52,14 +56,29 @@ export default function CalendarScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
+      {/* Upcoming Custody Reminders */}
+      {upcomingReminders.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.reminderBanner}>
+            <Ionicons name="alert-circle" size={20} color="#FF6B6B" />
+            <View style={styles.reminderContent}>
+              <Text style={styles.reminderTitle}>Upcoming Handoff</Text>
+              <Text style={styles.reminderText}>
+                {upcomingReminders[0].childName} in ~1 hour
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Today's Schedule Timeline */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Today's Timeline</Text>
 
-        {eventsLoading ? (
+        {eventsLoading || familyLoading ? (
           <Text style={styles.loadingText}>Loading calendar...</Text>
-        ) : events.length === 0 ? (
-          <Text style={styles.emptyText}>No calendar events today</Text>
+        ) : events.length === 0 && custodySchedule.length === 0 ? (
+          <Text style={styles.emptyText}>No events or handoffs today</Text>
         ) : (
           <View style={styles.eventsList}>
             {events.map((event, index) => (
@@ -81,6 +100,26 @@ export default function CalendarScreen() {
                     <Text style={[styles.eventCalendarLabel, { color: getCalendarColor(event.calendar) }]}>
                       {event.calendar === 'work' ? 'Work' : 'Family'}
                     </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+
+            {/* Custody handoffs */}
+            {custodySchedule.map((custody, index) => (
+              <View key={custody.id} style={[styles.eventItem, styles.eventItemBorder]}>
+                <View style={styles.eventTimeBlock}>
+                  <Text style={styles.eventTime}>{custody.time}</Text>
+                </View>
+                <View style={[styles.eventDot, { backgroundColor: custody.type === 'pickup' ? '#4ECDC4' : '#FFB627' }]} />
+                <View style={styles.eventContent}>
+                  <Text style={styles.eventTitle} numberOfLines={2}>
+                    {custody.type === 'pickup' ? '🚗' : '👋'} {custody.type === 'pickup' ? 'Pickup' : 'Dropoff'} — {custody.childName}
+                  </Text>
+                  <Text style={styles.eventLocation}>{custody.location}</Text>
+                  <View style={styles.eventCalendarBadge}>
+                    <Ionicons name="person" size={12} color="#666" />
+                    <Text style={styles.eventCalendarLabel}>{custody.with}</Text>
                   </View>
                 </View>
               </View>
@@ -129,6 +168,30 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+  },
+  reminderBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF6B6B',
+    gap: 12,
+  },
+  reminderContent: {
+    flex: 1,
+  },
+  reminderTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  reminderText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
   sectionTitle: {
     fontSize: 16,
