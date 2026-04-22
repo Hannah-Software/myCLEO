@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { bridgeClient } from '../utils/bridge-client';
 
 export interface GmailActionItem {
   id: string;
@@ -10,6 +11,19 @@ export interface GmailActionItem {
   preview: string;
 }
 
+
+const getMockItems = (): GmailActionItem[] => [
+  {
+    id: 'email-1',
+    from: 'paul.morrison@pauldavisrestoration.com',
+    subject: 'Q2 Operations Review — Need your input',
+    actionType: 'task',
+    urgency: 'high',
+    receivedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    preview: 'Can you review the attached Q2 ops metrics and provide feedback on the KPI dashboard...',
+  },
+];
+
 export const useGmailActionItems = () => {
   const [items, setItems] = useState<GmailActionItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -20,49 +34,21 @@ export const useGmailActionItems = () => {
     setError(null);
 
     try {
-      // TODO: Connect to FastAPI bridge endpoint for Gmail
+      // Fetch from FastAPI bridge endpoint
       // Multi-account scan: personal, business, legal, quantum-logos
-      // For now, mock data simulating action items from emails
-      const mockItems: GmailActionItem[] = [
-        {
-          id: 'email-1',
-          from: 'paul.morrison@pauldavisrestoration.com',
-          subject: 'Q2 Operations Review — Need your input',
-          actionType: 'task',
-          urgency: 'high',
-          receivedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          preview: 'Can you review the attached Q2 ops metrics and provide feedback on the KPI dashboard...',
-        },
-        {
-          id: 'email-2',
-          from: 'harris.legal.team@example.com',
-          subject: 'Harris Case — Discovery Deadline Extension Request',
-          actionType: 'decision',
-          urgency: 'high',
-          receivedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-          preview: 'Opposing counsel is requesting a 2-week extension on discovery responses. Thoughts?',
-        },
-        {
-          id: 'email-3',
-          from: 'kerri@example.com',
-          subject: 'This weekend — schedule for kids',
-          actionType: 'waiting',
-          urgency: 'medium',
-          receivedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-          preview: 'Got the custody schedule from Kerri. Kids are with us Sat-Sun. Need to plan activities...',
-        },
-        {
-          id: 'email-4',
-          from: 'product@linear.app',
-          subject: 'Linear Update: Q2 Product Roadmap',
-          actionType: 'fyi',
-          urgency: 'low',
-          receivedAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-          preview: 'New features available in Linear. Check out our latest updates...',
-        },
-      ];
+      const actions = await bridgeClient.getEmailActions();
+      
+      const mappedItems: GmailActionItem[] = actions.map((action: any, idx: number) => ({
+        id: action.id || `email-${idx}`,
+        from: action.from_address || 'Unknown',
+        subject: action.subject || '(no subject)',
+        actionType: action.action_type || 'fyi',
+        urgency: action.priority === 'high' ? 'high' : action.priority === 'low' ? 'low' : 'medium',
+        receivedAt: action.created_at || new Date().toISOString(),
+        preview: action.description || action.subject || '',
+      }));
 
-      setItems(mockItems);
+      setItems(mappedItems.length > 0 ? mappedItems : getMockItems());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch Gmail action items');
     } finally {

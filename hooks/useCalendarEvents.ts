@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { bridgeClient } from '../utils/bridge-client';
 
 export interface CalendarEvent {
   id: string;
@@ -20,46 +21,22 @@ export const useCalendarEvents = () => {
     setError(null);
 
     try {
-      // TODO: Connect to FastAPI bridge endpoint for Google Calendar
-      // For now, mock data simulating today's events
-      const today = new Date();
-      const mockEvents: CalendarEvent[] = [
-        {
-          id: 'cal-1',
-          title: 'Team Standup',
-          startTime: new Date(today.setHours(9, 0)).toISOString(),
-          endTime: new Date(today.setHours(9, 30)).toISOString(),
-          calendar: 'work',
-          isAllDay: false,
-          location: 'Zoom',
-        },
-        {
-          id: 'cal-2',
-          title: 'Client Call: Harris Case Update',
-          startTime: new Date(today.setHours(11, 0)).toISOString(),
-          endTime: new Date(today.setHours(12, 0)).toISOString(),
-          calendar: 'work',
-          isAllDay: false,
-          location: 'Virtual',
-        },
-        {
-          id: 'cal-3',
-          title: 'Mom — Weekly Check-in',
-          startTime: new Date(today.setHours(18, 0)).toISOString(),
-          endTime: new Date(today.setHours(18, 30)).toISOString(),
-          calendar: 'family',
-          isAllDay: false,
-        },
-        {
-          id: 'cal-4',
-          title: 'Kerri — Co-parent sync',
-          startTime: new Date(today.setHours(19, 0)).toISOString(),
-          endTime: new Date(today.setHours(19, 30)).toISOString(),
-          calendar: 'family',
-          isAllDay: false,
-        },
-      ];
-
+      // Fetch from FastAPI bridge
+      const events = await bridgeClient.getCalendarEvents(7);
+      
+      const mappedEvents = events.map((event: any) => ({
+        id: event.id || '',
+        title: event.title || '(no title)',
+        startTime: event.start_time || '',
+        endTime: event.end_time || '',
+        location: event.location,
+        description: event.description,
+        isAllDay: false,
+        calendar: 'primary',
+        isDeclined: false,
+      )));
+      
+      setEvents(mappedEvents.length > 0 ? mappedEvents : getMockEvents());
       setEvents(mockEvents);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch calendar events');

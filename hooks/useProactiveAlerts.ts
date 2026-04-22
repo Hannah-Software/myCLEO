@@ -1,14 +1,28 @@
 import { useState, useEffect } from 'react';
+import { bridgeClient } from '../utils/bridge-client';
 
 export interface ProactiveAlert {
   id: string;
   urgency: 'red' | 'yellow' | 'green';
+  severity?: string;
   title: string;
   due: string;
   domain: 'legal' | 'health' | 'family' | 'work' | 'financial';
   description: string;
   actionUrl?: string;
 }
+
+
+const getMockAlerts = (): ProactiveAlert[] => [
+  {
+    id: 'alert-1',
+    urgency: 'red',
+    title: 'Harris Case — Summary Motion Due',
+    due: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    domain: 'legal',
+    description: 'Opposing counsel summary motion response due in 2 days. Prep needed.',
+  },
+];
 
 export const useProactiveAlerts = () => {
   const [alerts, setAlerts] = useState<ProactiveAlert[]>([]);

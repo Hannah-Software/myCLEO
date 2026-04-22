@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Slider, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { bridgeClient } from '../../utils/bridge-client';
 
 interface HealthEntry {
   date: string;
@@ -20,28 +21,64 @@ export default function HealthScreen() {
   });
 
   const [history, setHistory] = useState<HealthEntry[]>([]);
-  const [medications] = useState(['Medication A', 'Medication B', 'Medication C']);
+  const [medications, setMedications] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadActiveMedications();
+  }, []);
+
+  const loadActiveMedications = async () => {
+    try {
+      const meds = await bridgeClient.getActiveMedications();
+      setMedications(meds || []);
+    } catch (error) {
+      console.error('Failed to load medications:', error);
+    }
+  };
 
   useEffect(() => {
     loadTodaysEntry();
   }, []);
 
   const loadTodaysEntry = async () => {
-    // TODO: Load from local SQLite database
-    // For now, mock data
+    try {
+      const entries = await bridgeClient.getHealthLog(1);
+      if (entries && entries.length > 0) {
+        const entry = entries[0];
+        setToday({
+          date: new Date().toISOString().split('T')[0],
+          mood: entry.mood || 5,
+          energy: entry.energy || 5,
+          notes: entry.notes || '',
+          medications: [],
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load health log:', error);
+    }
   };
 
   const saveTodaysEntry = async () => {
-    // TODO: Save to FastAPI bridge /health endpoint
-    console.log('Saving health entry:', today);
+    try {
+      await bridgeClient.logHealthEntry({
+        mood: today.mood,
+        energy: today.energy,
+        notes: today.notes,
+      });
+    } catch (error) {
+      console.error('Failed to save health entry:', error);
+    }
   };
 
-  const toggleMedication = (med: string) => {
+  const toggleMedication = (med: any) => {
+    const medId = typeof med === 'string' ? med : med.id;
+    const medName = typeof med === 'string' ? med : med.name;
+    
     setToday((prev) => ({
       ...prev,
-      medications: prev.medications.includes(med)
-        ? prev.medications.filter((m) => m !== med)
-        : [...prev.medications, med],
+      medications: prev.medications.includes(medId)
+        ? prev.medications.filter((m) => m !== medId)
+        : [...prev.medications, medId],
     }));
   };
 
