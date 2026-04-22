@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { bridgeClient } from '../utils/bridge-client';
 
 export interface FamilyMember {
   id: string;
@@ -41,70 +42,49 @@ export const useFamily = () => {
     setError(null);
 
     try {
-      // TODO: Connect to FastAPI bridge endpoint for family data
-      // For now, mock data
-      const mockFamily: FamilyMember[] = [
-        { id: 'kid-1', name: 'Child 1', age: 8, school: 'Elementary', relationship: 'child' },
-        { id: 'kid-2', name: 'Child 2', age: 6, school: 'Kindergarten', relationship: 'child' },
-      ];
+      // Fetch real family data from bridge
+      const familyData = await bridgeClient.getFamily();
 
-      const today = new Date();
-      const mockCustody: CustodyEvent[] = [
-        {
-          id: 'custody-1',
-          childId: 'kid-1',
-          childName: 'Child 1',
-          type: 'pickup',
-          time: '16:00',
-          location: 'School',
-          with: 'Ivan',
-          date: today.toISOString().split('T')[0],
-        },
-        {
-          id: 'custody-2',
-          childId: 'kid-2',
-          childName: 'Child 2',
-          type: 'dropoff',
-          time: '08:30',
-          location: "Mom's house",
-          with: 'Kerri',
-          date: today.toISOString().split('T')[0],
-        },
-      ];
+      // Transform family members
+      const transformedMembers: FamilyMember[] = familyData.family_members.map(member => ({
+        id: member.id,
+        name: member.name,
+        age: member.age || 0,
+        school: member.school || '',
+        relationship: member.relationship as 'child' | 'partner',
+      }));
 
-      const mockCommitments: SharedCommitment[] = [
-        {
-          id: 'commit-1',
-          title: 'Doctor appointment - Child 1',
-          type: 'appointment',
-          dueDate: new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-          assignedTo: ['Ivan', 'Kerri'],
-          completed: false,
-          notes: 'Pediatrician checkup',
-        },
-        {
-          id: 'commit-2',
-          title: 'School supplies shopping',
-          type: 'task',
-          dueDate: new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          assignedTo: ['Ivan'],
-          completed: false,
-        },
-        {
-          id: 'commit-3',
-          title: 'Family dinner - weekend',
-          type: 'event',
-          dueDate: new Date(today.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-          assignedTo: ['Ivan', 'Kerri', 'GF'],
-          completed: false,
-        },
-      ];
+      // Transform custody events
+      const transformedCustody: CustodyEvent[] = familyData.custody_schedule.map(event => ({
+        id: event.id,
+        childId: '', // TODO: resolve from title or separate field
+        childName: event.title?.split(' ').slice(-1)[0] || 'Child',
+        type: event.type as 'pickup' | 'dropoff',
+        time: event.start_time?.split('T')[1]?.slice(0, 5) || '',
+        location: event.location || '',
+        with: 'Ivan', // TODO: extract from event description or separate field
+        date: event.start_time?.split('T')[0] || '',
+      }));
 
-      setFamilyMembers(mockFamily);
-      setCustodySchedule(mockCustody);
-      setSharedCommitments(mockCommitments);
+      // Transform shared commitments
+      const transformedCommitments: SharedCommitment[] = familyData.shared_commitments.map(commitment => ({
+        id: commitment.id,
+        title: commitment.description,
+        type: commitment.priority === 'high' ? 'appointment' : 'task',
+        dueDate: commitment.due_date || '',
+        assignedTo: commitment.owner ? [commitment.owner] : ['you'],
+        completed: false,
+        notes: undefined,
+      }));
+
+      setFamilyMembers(transformedMembers);
+      setCustodySchedule(transformedCustody);
+      setSharedCommitments(transformedCommitments);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch family data');
+      setFamilyMembers([]);
+      setCustodySchedule([]);
+      setSharedCommitments([]);
     } finally {
       setLoading(false);
     }

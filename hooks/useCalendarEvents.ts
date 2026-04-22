@@ -36,10 +36,11 @@ export const useCalendarEvents = () => {
         isDeclined: false,
       )));
       
-      setEvents(mappedEvents.length > 0 ? mappedEvents : getMockEvents());
-      setEvents(mockEvents);
+      // Use real data from bridge (empty list is OK, no mock fallback)
+      setEvents(mappedEvents);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch calendar events');
+      setEvents([]);  // On error, show empty list
     } finally {
       setLoading(false);
     }

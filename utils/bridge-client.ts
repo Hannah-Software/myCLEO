@@ -102,6 +102,11 @@ class BridgeClient {
     return this.request(`/calendar?days=${days}`);
   }
 
+  // Family
+  async getFamily() {
+    return this.request("/family");
+  }
+
   // Alerts
   async getProactiveAlerts() {
     return this.request("/alerts");
