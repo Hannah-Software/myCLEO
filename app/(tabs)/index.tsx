@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useProactiveAlerts } from '../../hooks/useProactiveAlerts';
+import { useLatestBriefing } from '../../hooks/useLatestBriefing';
 
 type Phase = 'A' | 'B' | 'C' | 'D' | 'E';
 
@@ -39,6 +40,7 @@ export default function CheckInScreen() {
   const [loading, setLoading] = useState(true);
   const [signaling, setSignaling] = useState(false);
   const { alerts, dismissAlert, getCriticalAlerts } = useProactiveAlerts();
+  const { briefing, loading: briefingLoading, refetch: refetchBriefing } = useLatestBriefing();
 
   useEffect(() => {
     fetchState();
@@ -52,6 +54,7 @@ export default function CheckInScreen() {
       const response = await fetch('http://127.0.0.1:8765/state');
       const data = await response.json();
       setState(data);
+      refetchBriefing();
     } catch (error) {
       console.error('Failed to fetch state:', error);
     } finally {
@@ -123,6 +126,20 @@ export default function CheckInScreen() {
               </TouchableOpacity>
             </View>
           ))}
+        </View>
+      )}
+
+      {/* Morning Briefing */}
+      {briefing && (
+        <View style={styles.briefingCard}>
+          <View style={styles.briefingHeader}>
+            <Ionicons name="sunny" size={20} color="#45B7D1" />
+            <Text style={styles.briefingTitle}>Today's Briefing</Text>
+          </View>
+          <Text style={styles.briefingText}>{briefing.briefing_text}</Text>
+          <Text style={styles.briefingTime}>
+            {briefing.created_at ? new Date(briefing.created_at).toLocaleString() : 'Just now'}
+          </Text>
         </View>
       )}
 
@@ -441,5 +458,35 @@ const styles = StyleSheet.create({
   alertDescription: {
     fontSize: 11,
     color: '#666',
+  },
+  briefingCard: {
+    backgroundColor: '#E3F2FD',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: '#45B7D1',
+  },
+  briefingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  briefingTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0277BD',
+    marginLeft: 8,
+  },
+  briefingText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  briefingTime: {
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic',
   },
 });

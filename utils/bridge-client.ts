@@ -107,6 +107,21 @@ class BridgeClient {
     return this.request("/family");
   }
 
+  // Weather
+  async getWeather() {
+    return this.request("/weather");
+  }
+
+  // News
+  async getNews() {
+    return this.request("/news");
+  }
+
+  // Morning Briefing
+  async getLatestBriefing() {
+    return this.request("/briefing/latest");
+  }
+
   // Alerts
   async getProactiveAlerts() {
     return this.request("/alerts");
