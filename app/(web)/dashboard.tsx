@@ -26,18 +26,16 @@ export default function DashboardScreen() {
   // Fetch dashboard data from CLEO daemon bridge
   const fetchDashboardData = async () => {
     try {
-      const baseUrl = process.env.CLEO_BRIDGE_URL || 'http://127.0.0.1:8765';
-
       // Parallel fetch: state, alerts, health
-      const [stateRes, alertsRes, healthRes] = await Promise.all([
-        Promise.resolve(await bridgeClient.getState() as any),
-        Promise.resolve(await bridgeClient.getProactiveAlerts() as any),
-        Promise.resolve(await bridgeClient.getHealthLog() as any),
+      const [stateData, alertsData, healthData] = await Promise.all([
+        bridgeClient.getState(),
+        bridgeClient.getProactiveAlerts(),
+        bridgeClient.getHealthLog(1),
       ]);
 
-      if (stateRes.ok) setState(await stateRes.json());
-      if (alertsRes.ok) setAlerts(await alertsRes.json());
-      if (healthRes.ok) setHealth(await healthRes.json());
+      setState(stateData);
+      setAlerts(alertsData || []);
+      setHealth(healthData && healthData.length > 0 ? healthData[0] : null);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {

@@ -32,11 +32,8 @@ export default function DocumentsScreen() {
   // Fetch documents from CLEO daemon
   const fetchDocuments = async () => {
     try {
-      const baseUrl = process.env.CLEO_BRIDGE_URL || 'http://127.0.0.1:8765';
-      const res = await Promise.resolve(await bridgeClient.getDocuments() as any);
-      if (res.ok) {
-        setDocuments(await res.json());
-      }
+      const docs = await bridgeClient.getDocuments();
+      setDocuments(docs || []);
     } catch (error) {
       console.error('Failed to fetch documents:', error);
     } finally {
@@ -57,19 +54,9 @@ export default function DocumentsScreen() {
   const handleUpload = async (file: File) => {
     setUploading(true);
     try {
-      const baseUrl = process.env.CLEO_BRIDGE_URL || 'http://127.0.0.1:8765';
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch(`${baseUrl}/documents`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        // Refresh documents list
-        fetchDocuments();
-      }
+      await bridgeClient.uploadDocument(file);
+      // Refresh documents list
+      await fetchDocuments();
     } catch (error) {
       console.error('Upload failed:', error);
     } finally {
