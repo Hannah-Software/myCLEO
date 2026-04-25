@@ -40,19 +40,13 @@ export default function ReportsScreen() {
 
   const fetchData = async () => {
     try {
-      const baseUrl = process.env.CLEO_BRIDGE_URL || 'http://127.0.0.1:8765';
-
-      const [digestRes, reportRes] = await Promise.all([
-        fetch(`${baseUrl}/digests`),
-        Promise.resolve(await bridgeClient.getReports() as any),
+      const [digestsData, reportsData] = await Promise.all([
+        bridgeClient.getDigests(),
+        bridgeClient.getReports(),
       ]);
 
-      if (digestRes.ok) {
-        setDigests(await digestRes.json());
-      }
-      if (reportRes.ok) {
-        setReports(await reportRes.json());
-      }
+      setDigests(digestsData || []);
+      setReports(reportsData || []);
     } catch (error) {
       console.error('Failed to fetch reports:', error);
     } finally {

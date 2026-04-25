@@ -13,16 +13,6 @@ export interface ProactiveAlert {
 }
 
 
-const getMockAlerts = (): ProactiveAlert[] => [
-  {
-    id: 'alert-1',
-    urgency: 'red',
-    title: 'Harris Case — Summary Motion Due',
-    due: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    domain: 'legal',
-    description: 'Opposing counsel summary motion response due in 2 days. Prep needed.',
-  },
-];
 
 export const useProactiveAlerts = () => {
   const [alerts, setAlerts] = useState<ProactiveAlert[]>([]);
@@ -35,46 +25,32 @@ export const useProactiveAlerts = () => {
     setError(null);
 
     try {
-      // TODO: Connect to FastAPI bridge GET /alerts endpoint
-      // For now, mock data from the daemon's proactive alerts
-      const mockAlerts: ProactiveAlert[] = [
-        {
-          id: 'alert-1',
-          urgency: 'red',
-          title: 'Harris Case — Summary Motion Due',
-          due: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-          domain: 'legal',
-          description: 'Opposing counsel summary motion response due in 2 days. Prep needed.',
-        },
-        {
-          id: 'alert-2',
-          urgency: 'yellow',
-          title: 'Mom — Weekly Check-in',
-          due: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          domain: 'family',
-          description: 'Haven\'t talked to mom in 8 days. Schedule a call tomorrow.',
-        },
-        {
-          id: 'alert-3',
-          urgency: 'yellow',
-          title: 'Vyvanse Refill — Prescription expires',
-          due: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-          domain: 'health',
-          description: 'ADHD medication prescription expires in 3 days. Refill before then.',
-        },
-        {
-          id: 'alert-4',
-          urgency: 'green',
-          title: 'Q2 Planning — OpsKPI Demo Prep',
-          due: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          domain: 'work',
-          description: 'Prepare OpsKPI demo for Nashville prospects. Planned for next week.',
-        },
-      ];
+      // Fetch real alerts from bridge
+      const bridgeAlerts = await bridgeClient.getProactiveAlerts();
 
-      setAlerts(mockAlerts);
+      // Transform bridge alerts to component format
+      const transformedAlerts: ProactiveAlert[] = bridgeAlerts.map(alert => {
+        // Map severity to urgency
+        const severityMap: Record<string, 'red' | 'yellow' | 'green'> = {
+          critical: 'red',
+          warning: 'yellow',
+          info: 'green',
+        };
+
+        return {
+          id: alert.id,
+          urgency: severityMap[alert.severity] || 'green',
+          title: alert.title,
+          due: alert.created_at || new Date().toISOString(),
+          domain: 'work', // TODO: extract domain from alert title or add to bridge model
+          description: alert.description,
+        };
+      });
+
+      setAlerts(transformedAlerts);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch alerts');
+      setAlerts([]);
     } finally {
       setLoading(false);
     }

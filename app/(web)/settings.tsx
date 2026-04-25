@@ -49,11 +49,8 @@ export default function SettingsScreen() {
 
   const fetchConfig = async () => {
     try {
-      const baseUrl = process.env.CLEO_BRIDGE_URL || 'http://127.0.0.1:8765';
-      const res = await Promise.resolve(await bridgeClient.getConfig() as any);
-      if (res.ok) {
-        setConfig(await res.json());
-      }
+      const cfg = await bridgeClient.getConfig();
+      setConfig(cfg);
     } catch (error) {
       console.error('Failed to fetch config:', error);
     } finally {
@@ -70,19 +67,11 @@ export default function SettingsScreen() {
 
     setSaving(true);
     try {
-      const baseUrl = process.env.CLEO_BRIDGE_URL || 'http://127.0.0.1:8765';
-      const res = await fetch(`${baseUrl}/config`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...config, ...changes }),
-      });
-
-      if (res.ok) {
-        setEditMode(false);
-        setChanges({});
-        // Refresh config
-        fetchConfig();
-      }
+      await bridgeClient.updateConfig({ ...config, ...changes });
+      setEditMode(false);
+      setChanges({});
+      // Refresh config to confirm save
+      await fetchConfig();
     } catch (error) {
       console.error('Failed to save config:', error);
     } finally {

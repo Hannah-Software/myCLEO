@@ -1,6 +1,6 @@
 import { bridgeClient } from '../../utils/bridge-client';
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Pressable, Modal, TextInput } from 'react-native';
 
 /**
  * Web Dashboard — Command Center Overview
@@ -22,22 +22,22 @@ export default function DashboardScreen() {
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [ideasModalOpen, setIdeasModalOpen] = useState(false);
+  const [ideasText, setIdeasText] = useState('');
 
   // Fetch dashboard data from CLEO daemon bridge
   const fetchDashboardData = async () => {
     try {
-      const baseUrl = process.env.CLEO_BRIDGE_URL || 'http://127.0.0.1:8765';
-
       // Parallel fetch: state, alerts, health
-      const [stateRes, alertsRes, healthRes] = await Promise.all([
-        Promise.resolve(await bridgeClient.getState() as any),
-        Promise.resolve(await bridgeClient.getProactiveAlerts() as any),
-        Promise.resolve(await bridgeClient.getHealthLog() as any),
+      const [stateData, alertsData, healthData] = await Promise.all([
+        bridgeClient.getState(),
+        bridgeClient.getProactiveAlerts(),
+        bridgeClient.getHealthLog(1),
       ]);
 
-      if (stateRes.ok) setState(await stateRes.json());
-      if (alertsRes.ok) setAlerts(await alertsRes.json());
-      if (healthRes.ok) setHealth(await healthRes.json());
+      setState(stateData);
+      setAlerts(alertsData || []);
+      setHealth(healthData && healthData.length > 0 ? healthData[0] : null);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -56,6 +56,51 @@ export default function DashboardScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchDashboardData();
+  };
+
+  const handleCheckIn = async () => {
+    try {
+      await bridgeClient.dispatchSignal('done');
+      alert('Check-in sent. Current phase updated.');
+      fetchDashboardData();
+    } catch (error) {
+      alert('Failed to send check-in. Please try again.');
+    }
+  };
+
+  const handleEmail = async () => {
+    try {
+      const emails = await bridgeClient.getEmailActions();
+      if (emails && emails.length > 0) {
+        alert(`You have ${emails.length} action items:\n\n${emails.map((e: any) => `${e.subject} (from ${e.from_address})`).join('\n')}`);
+      } else {
+        alert('No pending email action items.');
+      }
+    } catch (error) {
+      alert('Failed to load email items.');
+    }
+  };
+
+  const handleCalendar = async () => {
+    try {
+      const events = await bridgeClient.getCalendarEvents(7);
+      if (events && events.length > 0) {
+        const upcomingText = events.slice(0, 3).map((e: any) => `${e.title} (${e.start_time})`).join('\n');
+        alert(`Your next 3 events:\n\n${upcomingText}`);
+      } else {
+        alert('No upcoming calendar events in the next 7 days.');
+      }
+    } catch (error) {
+      alert('Failed to load calendar events.');
+    }
+  };
+
+  const handleIdeasSubmit = () => {
+    if (ideasText.trim()) {
+      alert(`Idea captured: "${ideasText}"\n\n(To do: implement ideas storage)`);
+      setIdeasText('');
+      setIdeasModalOpen(false);
+    }
   };
 
   if (loading) {
@@ -137,18 +182,18 @@ export default function DashboardScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Quick Actions</Text>
         <View style={styles.actionGrid}>
-          <View style={styles.actionButton}>
+          <Pressable style={styles.actionButton} onPress={handleCheckIn}>
             <Text style={styles.actionText}>📋 Check In</Text>
-          </View>
-          <View style={styles.actionButton}>
+          </Pressable>
+          <Pressable style={styles.actionButton} onPress={handleEmail}>
             <Text style={styles.actionText}>📧 Email</Text>
-          </View>
-          <View style={styles.actionButton}>
+          </Pressable>
+          <Pressable style={styles.actionButton} onPress={handleCalendar}>
             <Text style={styles.actionText}>📅 Calendar</Text>
-          </View>
-          <View style={styles.actionButton}>
+          </Pressable>
+          <Pressable style={styles.actionButton} onPress={() => setIdeasModalOpen(true)}>
             <Text style={styles.actionText}>📝 Ideas</Text>
-          </View>
+          </Pressable>
         </View>
       </View>
 
@@ -158,6 +203,43 @@ export default function DashboardScreen() {
           Last updated: {new Date().toLocaleTimeString()}
         </Text>
       </View>
+
+      {/* Ideas Modal */}
+      <Modal
+        visible={ideasModalOpen}
+        onRequestClose={() => setIdeasModalOpen(false)}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Quick Idea</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="What's on your mind?"
+              placeholderTextColor="#999"
+              value={ideasText}
+              onChangeText={setIdeasText}
+              multiline
+              numberOfLines={4}
+            />
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setIdeasModalOpen(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleIdeasSubmit}
+              >
+                <Text style={styles.submitButtonText}>Save Idea</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -304,5 +386,67 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     color: '#999',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 14,
+    color: '#333',
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  modalButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 6,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  submitButton: {
+    backgroundColor: '#0066cc',
+  },
+  submitButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#fff',
   },
 });

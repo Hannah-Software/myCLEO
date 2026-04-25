@@ -1,3 +1,14 @@
+/**
+ * Gmail action items hook — backed by CLEO's /v1/email/* bridge.
+ *
+ * This hook reaches inbox state through `bridgeClient`, which talks to
+ * CLEO's authenticated FastAPI bridge (X-CLEO-API-Key auth, default
+ * http://127.0.0.1:8765). DO NOT introduce a direct Gmail OAuth flow
+ * here — every repo polling Gmail directly competes for the same
+ * per-user rate limit (LIT outage, 2026-04-25).
+ *
+ * Canonical reference: ~/Github/claude-hub/docs/integrations/CLEO_EMAIL_API.md
+ */
 import { useState, useEffect } from 'react';
 import { bridgeClient } from '../utils/bridge-client';
 
