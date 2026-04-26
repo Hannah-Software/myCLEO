@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CleoMode, OrchestratorState, Phase } from '../src/types';
 import { bootstrapBridgeAuth } from '../utils/bridge-auth';
+import { useOfflineFlush } from '../hooks/useOfflineFlush';
 
 interface CleoContextType {
   mode: CleoMode;
@@ -21,6 +22,8 @@ export function CleoProvider({ children }: { children: React.ReactNode }) {
       console.warn('[CleoProvider] bridge-auth bootstrap failed:', err)
     );
   }, []);
+
+  useOfflineFlush();
 
   return (
     <CleoContext.Provider value={{ mode, state, phase: state?.phase || null, loading }}>
