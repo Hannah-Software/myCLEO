@@ -1,4 +1,4 @@
-import { bridgeClient } from '../../utils/bridge-client';
+import { bridgeClient, BRIDGE_URL } from '../../utils/bridge-client';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, FlatList, TextInput } from 'react-native';
 
@@ -78,8 +78,7 @@ export default function ReportsScreen() {
 
   const handleExport = async (type: 'pdf' | 'email', itemId: string, itemType: 'digest' | 'report') => {
     try {
-      const baseUrl = process.env.CLEO_BRIDGE_URL || 'http://127.0.0.1:8765';
-      const res = await fetch(`${baseUrl}/export`, {
+      const res = await fetch(`${BRIDGE_URL}/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
