@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { bridgeClient } from '../utils/bridge-client';
-import Constants from 'expo-constants';
+import { getDeviceId } from '../utils/device-id';
 
-// Configure notification behavior when app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -13,79 +15,102 @@ Notifications.setNotificationHandler({
   }),
 });
 
+const LAST_TOKEN_KEY = 'cleo.push.lastToken.v1';
+
 export function usePushNotifications() {
   const [pushToken, setPushToken] = useState<string | undefined>(undefined);
-  const [notificationPermission, setNotificationPermission] = useState<Notifications.PermissionStatus | null>(null);
+  const [permission, setPermission] = useState<Notifications.PermissionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const subscriptionRef = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
-    registerForPushNotificationsAsync();
-  }, []);
+    let cancelled = false;
 
-  const registerForPushNotificationsAsync = async () => {
-    try {
-      // Request permissions
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
-        setError('Permission to receive notifications was denied');
-        setNotificationPermission(finalStatus);
-        return;
-      }
-
-      setNotificationPermission(finalStatus);
-
-      // Get push token
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: Constants.expoConfig?.extra?.eas?.projectId,
-      });
-
-      const token = tokenData.data;
-      setPushToken(token);
-
-      // Register with CLEO bridge
-      const deviceId = Constants.deviceId || 'unknown';
-      const deviceType = (Platform.OS === 'ios' ? 'ios' : 'android') as 'ios' | 'android';
-
-      await bridgeClient.registerPushToken(token, deviceId, deviceType);
-      console.log('[push] Token registered with CLEO:', token);
-
-      // Set up notification listener for foreground messages
-      const subscription = Notifications.addNotificationResponseReceivedListener(
-        (response) => {
-          console.log('[push] Notification received:', response.notification.request.content);
-          // Handle notification tap - navigate to relevant screen based on data
-          const data = response.notification.request.content.data;
-          if (data?.type === 'briefing') {
-            // Navigate to home tab or briefing screen
-            console.log('[push] Briefing notification tapped');
-          } else if (data?.type === 'alert') {
-            // Navigate to alerts screen
-            console.log('[push] Alert notification tapped');
-          }
+    const register = async () => {
+      try {
+        if (!Device.isDevice) {
+          setError('Push notifications require a physical device');
+          return;
         }
-      );
 
-      return () => {
-        subscription.remove();
-      };
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to register push token: ${errorMsg}`);
-      console.error('[push] Registration failed:', errorMsg);
-    }
-  };
+        const { status: existing } = await Notifications.getPermissionsAsync();
+        let finalStatus = existing;
+        if (existing !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (cancelled) return;
+        setPermission(finalStatus);
+        if (finalStatus !== 'granted') {
+          setError('Permission to receive notifications was denied');
+          return;
+        }
+
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (!projectId || projectId === 'REPLACE_WITH_EAS_PROJECT_ID') {
+          setError('EAS projectId not set; run eas init to enable push');
+          return;
+        }
+
+        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+        if (cancelled) return;
+        const token = tokenData.data;
+        setPushToken(token);
+
+        const lastToken = await AsyncStorage.getItem(LAST_TOKEN_KEY);
+        if (lastToken === token) {
+          // Already registered with the bridge; skip the network call.
+          return;
+        }
+
+        const deviceId = await getDeviceId();
+        const deviceType = (Platform.OS === 'ios' ? 'ios' : 'android') as 'ios' | 'android';
+
+        try {
+          await bridgeClient.registerPushToken(token, deviceId, deviceType);
+          await AsyncStorage.setItem(LAST_TOKEN_KEY, token);
+          console.log('[push] token registered with bridge:', token.slice(0, 16) + '…');
+        } catch (regErr) {
+          // bridge-client already enqueued for retry via the offline queue
+          // (registerPushToken opted in via enqueueOnFailure: true). Don't
+          // store LAST_TOKEN_KEY so the next successful run still updates.
+          console.warn(
+            '[push] bridge registration deferred to offline queue:',
+            regErr instanceof Error ? regErr.message : regErr
+          );
+        }
+      } catch (err) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(`Push setup failed: ${msg}`);
+        console.error('[push] setup failed:', msg);
+      }
+    };
+
+    register();
+
+    subscriptionRef.current = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        if (data?.type === 'briefing') {
+          console.log('[push] Briefing notification tapped');
+        } else if (data?.type === 'alert') {
+          console.log('[push] Alert notification tapped');
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      subscriptionRef.current?.remove();
+      subscriptionRef.current = null;
+    };
+  }, []);
 
   return {
     pushToken,
-    notificationPermission,
+    notificationPermission: permission,
     error,
-    isRegistered: pushToken !== undefined && notificationPermission === 'granted',
+    isRegistered: pushToken !== undefined && permission === 'granted',
   };
 }
