@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { bridgeClient } from '@/utils/bridge-client';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
+import { bridgeClient, BRIDGE_URL, getBridgeApiKey } from '@/utils/bridge-client';
+import { setStoredApiKey, clearStoredApiKey } from '@/utils/bridge-auth';
 
 interface Config {
   user?: { name?: string; timezone?: string };
@@ -8,10 +18,20 @@ interface Config {
   digest?: { frequency?: string; recipient?: string };
 }
 
+function maskKey(key: string | null): string {
+  if (!key) return 'Not set';
+  if (key.length <= 8) return '••••';
+  return `${key.slice(0, 4)}••••${key.slice(-4)}`;
+}
+
 export default function SettingsScreen() {
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [keyInput, setKeyInput] = useState('');
+  const [keyRevealed, setKeyRevealed] = useState(false);
+  const [keySaving, setKeySaving] = useState(false);
+  const [currentKey, setCurrentKey] = useState<string | null>(getBridgeApiKey());
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -27,6 +47,46 @@ export default function SettingsScreen() {
 
     fetchConfig();
   }, []);
+
+  const onSaveKey = async () => {
+    const trimmed = keyInput.trim();
+    if (!trimmed) {
+      Alert.alert('Bridge API key', 'Enter a non-empty key.');
+      return;
+    }
+    setKeySaving(true);
+    try {
+      await setStoredApiKey(trimmed);
+      setCurrentKey(trimmed);
+      setKeyInput('');
+      Alert.alert('Bridge API key', 'Saved. New key is in use immediately.');
+    } catch (err) {
+      Alert.alert(
+        'Bridge API key',
+        err instanceof Error ? err.message : 'Save failed'
+      );
+    } finally {
+      setKeySaving(false);
+    }
+  };
+
+  const onClearKey = async () => {
+    Alert.alert(
+      'Clear bridge API key?',
+      'CLEO will run unauthenticated until you set a new one.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            await clearStoredApiKey();
+            setCurrentKey(null);
+          },
+        },
+      ]
+    );
+  };
 
   if (loading) {
     return (
@@ -85,7 +145,72 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.footnote}>Settings are configured on the server. To make changes, use the CLEO daemon or contact your administrator.</Text>
+        <Text style={styles.sectionTitle}>Bridge Connection</Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>URL</Text>
+          <Text style={[styles.value, styles.email]}>{BRIDGE_URL}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>API key</Text>
+          <Text style={styles.value}>
+            {keyRevealed ? currentKey || 'Not set' : maskKey(currentKey)}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={() => setKeyRevealed((v) => !v)}>
+          <Text style={styles.linkText}>
+            {keyRevealed ? 'Hide' : 'Reveal'} key
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.label, { marginTop: 12 }]}>Set new API key</Text>
+        <TextInput
+          style={styles.keyInput}
+          value={keyInput}
+          onChangeText={setKeyInput}
+          placeholder="paste 64-char hex from Doppler"
+          placeholderTextColor="#aaa"
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry={!keyRevealed}
+          editable={!keySaving}
+        />
+        <View style={styles.keyButtonRow}>
+          <TouchableOpacity
+            style={[
+              styles.keyButton,
+              styles.keyButtonPrimary,
+              (!keyInput.trim() || keySaving) && styles.keyButtonDisabled,
+            ]}
+            onPress={onSaveKey}
+            disabled={!keyInput.trim() || keySaving}
+          >
+            {keySaving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.keyButtonText}>Save</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.keyButton, styles.keyButtonDanger]}
+            onPress={onClearKey}
+            disabled={!currentKey}
+          >
+            <Text style={styles.keyButtonText}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.footnote}>
+          Generate with: openssl rand -hex 32. Set on the bridge with:
+          doppler secrets set CLEO_BRIDGE_API_KEY=&lt;key&gt; -p CLEO -c dev,
+          then paste the same value here.
+        </Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.footnote}>
+          Other settings are configured on the server. To make changes, use the
+          CLEO daemon or contact your administrator.
+        </Text>
       </View>
     </ScrollView>
   );
@@ -145,4 +270,34 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 18,
   },
+  linkText: {
+    color: '#007AFF',
+    fontSize: 13,
+    paddingVertical: 8,
+  },
+  keyInput: {
+    marginTop: 6,
+    backgroundColor: '#F5F5F7',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    fontSize: 13,
+    color: '#222',
+  },
+  keyButtonRow: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 8,
+  },
+  keyButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keyButtonPrimary: { backgroundColor: '#007AFF' },
+  keyButtonDanger: { backgroundColor: '#C0392B' },
+  keyButtonDisabled: { backgroundColor: '#B0B0B0' },
+  keyButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });
