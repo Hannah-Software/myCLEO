@@ -3,6 +3,7 @@ import { CleoMode, OrchestratorState, Phase } from '../src/types';
 import { bootstrapBridgeAuth } from '../utils/bridge-auth';
 import { useOfflineFlush } from '../hooks/useOfflineFlush';
 import { startBridgeReachabilityMonitor } from '../hooks/useBridgeReachability';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 interface CleoContextType {
   mode: CleoMode;
@@ -27,6 +28,7 @@ export function CleoProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useOfflineFlush();
+  usePushNotifications();
 
   return (
     <CleoContext.Provider value={{ mode, state, phase: state?.phase || null, loading }}>
