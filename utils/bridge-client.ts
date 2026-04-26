@@ -32,6 +32,14 @@ interface RequestOptions {
   headers?: Record<string, string>;
   body?: unknown;
   timeout?: number;
+  /**
+   * If true and the request fails (network/timeout/5xx), the write is
+   * persisted to the offline queue (utils/offline-queue) and replayed
+   * when the bridge is reachable again. Only meaningful for non-GET.
+   * Caller still gets an error throw so it can show optimistic UI or a
+   * "queued offline" toast.
+   */
+  enqueueOnFailure?: boolean;
 }
 
 class BridgeClient {
@@ -50,6 +58,7 @@ class BridgeClient {
       headers = {},
       body,
       timeout = 10000,
+      enqueueOnFailure = false,
     } = options;
 
     const url = `${this.host}${endpoint}`;
@@ -73,14 +82,41 @@ class BridgeClient {
       });
 
       if (!response.ok) {
-        throw new Error(
+        const httpErr = new Error(
           `Bridge error: ${response.status} ${response.statusText}`
         );
+        if (enqueueOnFailure && method !== "GET" && response.status >= 500) {
+          await this.tryEnqueue(endpoint, method, body);
+        }
+        throw httpErr;
       }
 
       return await response.json();
+    } catch (err) {
+      if (
+        enqueueOnFailure &&
+        method !== "GET" &&
+        !(err instanceof Error && err.message.startsWith("Bridge error: 4"))
+      ) {
+        await this.tryEnqueue(endpoint, method, body);
+      }
+      throw err;
     } finally {
       clearTimeout(timeoutId);
+    }
+  }
+
+  private async tryEnqueue(
+    endpoint: string,
+    method: "GET" | "POST" | "PUT" | "DELETE",
+    body: unknown
+  ): Promise<void> {
+    if (method === "GET") return;
+    try {
+      const { enqueueWrite } = await import("./offline-queue");
+      await enqueueWrite(endpoint, method, body);
+    } catch (queueErr) {
+      console.warn("[bridge-client] enqueue failed:", queueErr);
     }
   }
 
@@ -90,7 +126,10 @@ class BridgeClient {
   }
 
   async dispatchSignal(signal: string) {
-    return this.request(`/signal/${signal}`, { method: "POST" });
+    return this.request(`/signal/${signal}`, {
+      method: "POST",
+      enqueueOnFailure: true,
+    });
   }
 
   // Health tracking
@@ -102,6 +141,7 @@ class BridgeClient {
     return this.request("/health", {
       method: "POST",
       body: entry,
+      enqueueOnFailure: true,
     });
   }
 
@@ -113,6 +153,7 @@ class BridgeClient {
   async logMedicationTaken(medicationId: string) {
     return this.request(`/medications/${medicationId}/taken`, {
       method: "POST",
+      enqueueOnFailure: true,
     });
   }
 
@@ -214,6 +255,7 @@ class BridgeClient {
     return this.request("/push-token", {
       method: "POST",
       body: { token, device_id: deviceId, device_type: deviceType },
+      enqueueOnFailure: true,
     });
   }
 
