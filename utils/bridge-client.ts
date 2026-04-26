@@ -11,6 +11,22 @@ export const BRIDGE_URL =
   process.env.EXPO_PUBLIC_BRIDGE_HOST ||
   "http://127.0.0.1:8765";
 
+export const BRIDGE_API_KEY_HEADER = "X-CLEO-API-Key";
+
+// Module-level mutable key. Initialized from EXPO_PUBLIC_BRIDGE_API_KEY for
+// dev/Expo Go convenience; replaced at app boot by setBridgeApiKey() once
+// utils/bridge-auth bootstrapBridgeAuth() reads the secure-store value.
+let _apiKey: string | null =
+  process.env.EXPO_PUBLIC_BRIDGE_API_KEY || null;
+
+export function setBridgeApiKey(key: string | null): void {
+  _apiKey = key;
+}
+
+export function getBridgeApiKey(): string | null {
+  return _apiKey;
+}
+
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   headers?: Record<string, string>;
@@ -40,13 +56,18 @@ class BridgeClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    const mergedHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...headers,
+    };
+    if (_apiKey) {
+      mergedHeaders[BRIDGE_API_KEY_HEADER] = _apiKey;
+    }
+
     try {
       const response = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          ...headers,
-        },
+        headers: mergedHeaders,
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       });
@@ -141,8 +162,13 @@ class BridgeClient {
     formData.append("file", file);
 
     const url = `${this.host}/documents`;
+    const uploadHeaders: Record<string, string> = {};
+    if (_apiKey) {
+      uploadHeaders[BRIDGE_API_KEY_HEADER] = _apiKey;
+    }
     const response = await fetch(url, {
       method: "POST",
+      headers: uploadHeaders,
       body: formData,
     });
 
