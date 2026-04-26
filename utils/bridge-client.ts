@@ -216,6 +216,35 @@ class BridgeClient {
       body: { token, device_id: deviceId, device_type: deviceType },
     });
   }
+
+  // Chat — POST /chat (Claude Haiku 4.5, grounded in last 90d email/calendar)
+  async chat(
+    message: string,
+    history?: ChatTurn[]
+  ): Promise<ChatResponse> {
+    return this.request<ChatResponse>("/chat", {
+      method: "POST",
+      body: { message, history },
+      timeout: 35000,
+    });
+  }
+}
+
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatContextSummary {
+  email_count: number;
+  calendar_count: number;
+  window_days: number;
+}
+
+export interface ChatResponse {
+  response: string;
+  model: string;
+  context: ChatContextSummary;
 }
 
 export const bridgeClient = new BridgeClient();
