@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { bridgeClient, BRIDGE_URL, getBridgeApiKey } from '@/utils/bridge-client';
+import { bridgeClient, BRIDGE_URL, getBridgeApiKey, ProbeResult } from '@/utils/bridge-client';
 import { setStoredApiKey, clearStoredApiKey } from '@/utils/bridge-auth';
 
 interface Config {
@@ -32,6 +32,10 @@ export default function SettingsScreen() {
   const [keyRevealed, setKeyRevealed] = useState(false);
   const [keySaving, setKeySaving] = useState(false);
   const [currentKey, setCurrentKey] = useState<string | null>(getBridgeApiKey());
+  const [tailscaleResult, setTailscaleResult] = useState<ProbeResult | null>(null);
+  const [tailscaleRunning, setTailscaleRunning] = useState(false);
+  const [daemonResult, setDaemonResult] = useState<ProbeResult | null>(null);
+  const [daemonRunning, setDaemonRunning] = useState(false);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -68,6 +72,22 @@ export default function SettingsScreen() {
     } finally {
       setKeySaving(false);
     }
+  };
+
+  const onTestTailscale = async () => {
+    setTailscaleRunning(true);
+    setTailscaleResult(null);
+    const result = await bridgeClient.tailscaleProbe();
+    setTailscaleResult(result);
+    setTailscaleRunning(false);
+  };
+
+  const onTestDaemon = async () => {
+    setDaemonRunning(true);
+    setDaemonResult(null);
+    const result = await bridgeClient.daemonProbe();
+    setDaemonResult(result);
+    setDaemonRunning(false);
   };
 
   const onClearKey = async () => {
@@ -207,12 +227,72 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Connection Tests</Text>
+
+        <TouchableOpacity
+          style={[styles.probeButton, tailscaleRunning && styles.keyButtonDisabled]}
+          onPress={onTestTailscale}
+          disabled={tailscaleRunning}
+        >
+          {tailscaleRunning ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.keyButtonText}>Test Tailscale reachability</Text>
+          )}
+        </TouchableOpacity>
+        {tailscaleResult && <ProbeResultLine label="Tailscale" result={tailscaleResult} />}
+
+        <TouchableOpacity
+          style={[
+            styles.probeButton,
+            { marginTop: 10 },
+            daemonRunning && styles.keyButtonDisabled,
+          ]}
+          onPress={onTestDaemon}
+          disabled={daemonRunning}
+        >
+          {daemonRunning ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.keyButtonText}>Test daemon health</Text>
+          )}
+        </TouchableOpacity>
+        {daemonResult && <ProbeResultLine label="Daemon" result={daemonResult} />}
+
+        <Text style={[styles.footnote, { marginTop: 10 }]}>
+          Tailscale probe hits /health-check (unauthenticated) — confirms the
+          tunnel is up. Daemon probe hits /state with the saved API key —
+          differentiates "key wrong" (401) from "daemon down" (timeout).
+        </Text>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.footnote}>
           Other settings are configured on the server. To make changes, use the
           CLEO daemon or contact your administrator.
         </Text>
       </View>
     </ScrollView>
+  );
+}
+
+function ProbeResultLine({ label, result }: { label: string; result: ProbeResult }) {
+  const ok = result.ok;
+  const tone = ok ? '#1B5E20' : '#B71C1C';
+  let summary: string;
+  if (ok) {
+    summary = `${result.status ?? 200} OK · ${result.latencyMs}ms`;
+  } else if (result.status) {
+    summary = `${result.status} · ${result.latencyMs}ms`;
+  } else if (result.error) {
+    summary = `${result.error} · ${result.latencyMs}ms`;
+  } else {
+    summary = `failed · ${result.latencyMs}ms`;
+  }
+  return (
+    <Text style={[styles.probeResult, { color: tone }]}>
+      {label}: {summary}
+    </Text>
   );
 }
 
@@ -300,4 +380,16 @@ const styles = StyleSheet.create({
   keyButtonDanger: { backgroundColor: '#C0392B' },
   keyButtonDisabled: { backgroundColor: '#B0B0B0' },
   keyButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  probeButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  probeResult: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: '500',
+  },
 });

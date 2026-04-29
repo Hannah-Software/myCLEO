@@ -241,9 +241,62 @@ class BridgeClient {
     return this.request("/reports");
   }
 
-  // Health check
+  // Health check (authenticated — also returns daemon status object)
   async healthCheck() {
     return this.request("/health-check");
+  }
+
+  /**
+   * Tailscale reachability probe. Bypasses the auth-injecting request helper
+   * and the offline queue — purely tests whether the bridge host responds at
+   * the network layer. Returns a structured result instead of throwing so
+   * the Settings UI can surface a friendly message.
+   */
+  async tailscaleProbe(timeoutMs: number = 5000): Promise<ProbeResult> {
+    const url = `${this.host}/health-check`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const start = Date.now();
+    try {
+      const r = await fetch(url, { method: "GET", signal: controller.signal });
+      const latencyMs = Date.now() - start;
+      return { ok: r.ok, status: r.status, latencyMs };
+    } catch (err) {
+      const latencyMs = Date.now() - start;
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, latencyMs, error: msg };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Daemon probe. Hits an authenticated endpoint (/state) so the Settings UI
+   * can distinguish "daemon up + key works" (200) from "daemon up but key
+   * wrong" (401) from "daemon down" (timeout / network error).
+   */
+  async daemonProbe(timeoutMs: number = 5000): Promise<ProbeResult> {
+    const url = `${this.host}/state`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const start = Date.now();
+    const headers: Record<string, string> = {};
+    if (_apiKey) headers[BRIDGE_API_KEY_HEADER] = _apiKey;
+    try {
+      const r = await fetch(url, {
+        method: "GET",
+        headers,
+        signal: controller.signal,
+      });
+      const latencyMs = Date.now() - start;
+      return { ok: r.ok, status: r.status, latencyMs };
+    } catch (err) {
+      const latencyMs = Date.now() - start;
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, latencyMs, error: msg };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   // Push notifications
@@ -287,6 +340,13 @@ export interface ChatResponse {
   response: string;
   model: string;
   context: ChatContextSummary;
+}
+
+export interface ProbeResult {
+  ok: boolean;
+  status?: number;
+  latencyMs: number;
+  error?: string;
 }
 
 export const bridgeClient = new BridgeClient();
