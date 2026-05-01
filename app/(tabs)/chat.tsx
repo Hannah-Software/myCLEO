@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,15 +17,14 @@ import {
   type ChatTurn,
   type ChatContextSummary,
 } from '../../utils/bridge-client';
+import {
+  loadThread,
+  saveThread,
+  clearThread,
+  type StoredMessage,
+} from '../../utils/chat-storage';
 
-type Message = {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: number;
-  context?: ChatContextSummary;
-  error?: boolean;
-};
+type Message = StoredMessage;
 
 const HISTORY_TURN_LIMIT = 12;
 
@@ -46,7 +45,30 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadThread()
+      .then((stored) => {
+        if (!cancelled) setMessages(stored);
+      })
+      .catch((err) => console.warn('[chat] load thread failed:', err))
+      .finally(() => {
+        if (!cancelled) setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveThread(messages).catch((err) =>
+      console.warn('[chat] save thread failed:', err)
+    );
+  }, [messages, hydrated]);
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => {
@@ -102,6 +124,11 @@ export default function ChatScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     setMessages([]);
+    try {
+      await clearThread();
+    } catch (err) {
+      console.warn('[chat] clear thread failed:', err);
+    }
     setRefreshing(false);
   }, []);
 
