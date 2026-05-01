@@ -1,11 +1,15 @@
 /**
  * FastAPI Bridge Client
- * Communicates with CLEO daemon via FastAPI bridge (127.0.0.1:8765)
- * Personal mode: local Tailscale network
- * Commercial mode: PocketBase (stub for future)
+ * Communicates with CLEO daemon via FastAPI bridge.
+ * Personal mode: local Tailscale network (set EXPO_PUBLIC_BRIDGE_URL to the
+ *   Tailscale IP, e.g. http://100.64.218.73:8765).
+ * Commercial mode: PocketBase (stub for future).
  */
 
-const BRIDGE_HOST = process.env.EXPO_PUBLIC_BRIDGE_HOST || "http://127.0.0.1:8765";
+export const BRIDGE_URL =
+  process.env.EXPO_PUBLIC_BRIDGE_URL ||
+  process.env.EXPO_PUBLIC_BRIDGE_HOST ||
+  "http://127.0.0.1:8765";
 
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -17,7 +21,7 @@ interface RequestOptions {
 class BridgeClient {
   private host: string;
 
-  constructor(host: string = BRIDGE_HOST) {
+  constructor(host: string = BRIDGE_URL) {
     this.host = host;
   }
 
@@ -173,6 +177,18 @@ class BridgeClient {
   // Health check
   async healthCheck() {
     return this.request("/health-check");
+  }
+
+  // Push notifications
+  async registerPushToken(
+    token: string,
+    deviceId: string,
+    deviceType: "ios" | "android"
+  ) {
+    return this.request("/push-token", {
+      method: "POST",
+      body: { token, device_id: deviceId, device_type: deviceType },
+    });
   }
 }
 

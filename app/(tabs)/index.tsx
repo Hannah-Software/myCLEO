@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator
 import { Ionicons } from '@expo/vector-icons';
 import { useProactiveAlerts } from '../../hooks/useProactiveAlerts';
 import { useLatestBriefing } from '../../hooks/useLatestBriefing';
+import { BRIDGE_URL } from '../../utils/bridge-client';
 
 type Phase = 'A' | 'B' | 'C' | 'D' | 'E';
 
@@ -50,8 +51,7 @@ export default function CheckInScreen() {
 
   const fetchState = async () => {
     try {
-      // TODO: Replace with actual daemon URL from config (Tailscale IP)
-      const response = await fetch('http://127.0.0.1:8765/state');
+      const response = await fetch(`${BRIDGE_URL}/state`);
       const data = await response.json();
       setState(data);
       refetchBriefing();
@@ -67,7 +67,7 @@ export default function CheckInScreen() {
     
     setSignaling(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8765/signal/${signal}`, {
+      const response = await fetch(`${BRIDGE_URL}/signal/${signal}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ context: `Signaled from mobile app: ${signal}` }),
@@ -97,7 +97,7 @@ export default function CheckInScreen() {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Unable to connect to daemon</Text>
-        <Text style={styles.errorSubtext}>Make sure FastAPI bridge is running on 127.0.0.1:8765</Text>
+        <Text style={styles.errorSubtext}>Make sure FastAPI bridge is reachable at {BRIDGE_URL}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={fetchState}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
