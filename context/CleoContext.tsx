@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CleoMode, OrchestratorState, Phase } from '../src/types';
+import { bootstrapBridgeAuth } from '../utils/bridge-auth';
 
 interface CleoContextType {
   mode: CleoMode;
@@ -14,6 +15,12 @@ export function CleoProvider({ children }: { children: React.ReactNode }) {
   const [mode] = useState<CleoMode>((process.env.CLEO_MODE as CleoMode) || 'commercial');
   const [state, setState] = useState<OrchestratorState | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    bootstrapBridgeAuth().catch((err) =>
+      console.warn('[CleoProvider] bridge-auth bootstrap failed:', err)
+    );
+  }, []);
 
   return (
     <CleoContext.Provider value={{ mode, state, phase: state?.phase || null, loading }}>
