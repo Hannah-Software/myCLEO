@@ -1,0 +1,61 @@
+# Node / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# EAS / native
+android/
+ios/
+*.apk
+*.aab
+*.ipa
+*.app
+*.xcarchive
+*.dSYM.zip
+*.dSYM
+
+# Metro / Babel cache
+.metro-health-check*
+.babel.json
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+.env.staging
+.env.staging.local
+# .env.example IS tracked — it documents required keys
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# Test output / coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Logs
+logs/
+*.log
