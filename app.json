@@ -6,7 +6,9 @@
     "scheme": "mycleo",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -16,7 +18,12 @@
     },
     "android": {
       "package": "com.synapticsystems.mycleo",
-      "supportedAbis": ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]
+      "supportedAbis": [
+        "armeabi-v7a",
+        "arm64-v8a",
+        "x86",
+        "x86_64"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -24,13 +31,16 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      ["expo-sqlite"],
       "expo-notifications"
     ],
     "extra": {
       "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+        "projectId": "4f6ef6c3-4b6a-4e84-9d42-885824a69e81"
+      },
+      "router": {
+        "origin": false
       }
-    }
+    },
+    "owner": "ivanemadrigal"
   }
 }
