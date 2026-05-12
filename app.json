@@ -41,6 +41,9 @@
         "origin": false
       }
     },
-    "owner": "ivanemadrigal"
+    "owner": "ivanemadrigal",
+    "updates": {
+      "url": "https://u.expo.dev/4f6ef6c3-4b6a-4e84-9d42-885824a69e81"
+    }
   }
 }
