@@ -10,9 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { bridgeClient, BRIDGE_URL, getBridgeApiKey, ProbeResult } from '@/utils/bridge-client';
-import { setStoredApiKey, clearStoredApiKey } from '@/utils/bridge-auth';
-import { getActiveProfile, isTestMode, Profile } from '@/utils/profileRegistry';
+import { bridgeClient, BRIDGE_URL, getBridgeApiKey, ProbeResult } from '../../utils/bridge-client';
+import { setStoredApiKey, clearStoredApiKey } from '../../utils/bridge-auth';
+import { getActiveProfile, isTestMode, Profile } from '../../utils/profileRegistry';
 
 interface Config {
   user?: { name?: string; timezone?: string };
