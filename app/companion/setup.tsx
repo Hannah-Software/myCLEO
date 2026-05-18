@@ -41,6 +41,10 @@ export default function SetupWizard() {
   const [preferredGreetingName, setPreferredGreetingName] = useState('');
   const [homeLocation, setHomeLocation] = useState('');
   const [primaryPhotoUri, setPrimaryPhotoUri] = useState<string | undefined>();
+  // Wizard collects MULTIPLE contacts (was single-contact in v0.1 wizard).
+  // Form is for the one currently being added; pressing "Save contact"
+  // pushes it into `contacts` and clears the form for the next.
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactName, setContactName] = useState('');
   const [contactRelationship, setContactRelationship] = useState('');
   const [contactPhone, setContactPhone] = useState('');
@@ -84,13 +88,17 @@ export default function SetupWizard() {
     }
     await setCaregiverPin(pin);
 
-    const contacts: Contact[] = contactName && contactPhone ? [{
-      id: 'contact-1',
-      name: contactName,
-      relationship: contactRelationship,
-      phone: contactPhone,
-      isPrimary: true,
-    }] : [];
+    // If there's still a partially-filled contact in the form when finish
+    // fires, save it too (tolerant — caregiver may have typed and tapped
+    // straight to the PIN step).
+    const pendingContact: Contact | null = contactName.trim() && contactPhone.trim() ? {
+      id: `contact-${Date.now()}`,
+      name: contactName.trim(),
+      relationship: contactRelationship.trim(),
+      phone: contactPhone.trim(),
+      isPrimary: contacts.length === 0,
+    } : null;
+    const finalContacts: Contact[] = pendingContact ? [...contacts, pendingContact] : [...contacts];
 
     const medications: Medication[] = medName && medDosage ? [{
       id: 'med-1',
@@ -105,7 +113,7 @@ export default function SetupWizard() {
       preferredGreetingName: preferredGreetingName || undefined,
       homeLocation: homeLocation || undefined,
       primaryPhotoUri,
-      contacts,
+      contacts: finalContacts,
       family: [],
       medications,
       setupCompleted: true,
@@ -184,24 +192,106 @@ export default function SetupWizard() {
         )}
 
         {step === 'contact' && (
-          <Step title="Setup — Emergency contact" subtitle={t(language, 'setup_first_contact_prompt')}>
+          <Step title="Setup — Emergency contacts" subtitle="Add anyone you'd want to call for help. The first contact you add is the primary one — that's the big red button on the home screen. You can add more in Settings later too.">
+            {contacts.length > 0 ? (
+              <View style={styles.savedList}>
+                {contacts.map((c, idx) => (
+                  <View key={c.id} style={styles.savedItem}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.savedName}>
+                        {c.name}{idx === 0 ? '  ★ primary' : ''}
+                      </Text>
+                      <Text style={styles.savedMeta}>
+                        {c.relationship ? c.relationship + ' · ' : ''}{c.phone}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setContacts(contacts.filter((x) => x.id !== c.id))}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Text style={styles.removeText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
             <Text style={styles.smallLabel}>Name</Text>
-            <TextInput style={styles.input} value={contactName} onChangeText={setContactName} placeholder="Ivan" autoFocus />
-            <Text style={styles.smallLabel}>Relationship</Text>
-            <TextInput style={styles.input} value={contactRelationship} onChangeText={setContactRelationship} placeholder="your son" />
+            <TextInput
+              style={styles.input}
+              value={contactName}
+              onChangeText={setContactName}
+              placeholder="Ivan"
+              autoFocus={contacts.length === 0}
+              returnKeyType="next"
+            />
+            <Text style={styles.smallLabel}>Relationship (optional)</Text>
+            <TextInput
+              style={styles.input}
+              value={contactRelationship}
+              onChangeText={setContactRelationship}
+              placeholder="your son"
+              returnKeyType="next"
+            />
             <Text style={styles.smallLabel}>Phone</Text>
             <TextInput
               style={styles.input}
               value={contactPhone}
               onChangeText={setContactPhone}
-              placeholder="+15125551234"
+              placeholder="(512) 555-1234"
               keyboardType="phone-pad"
               autoCapitalize="none"
+              returnKeyType="done"
             />
+            <Text style={styles.smallHint}>
+              Any common format works — "(512) 555-1234", "512-555-1234", "+1 512 555 1234". The Companion app dials whatever you type.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.addContactButton, (!contactName.trim() || !contactPhone.trim()) && styles.addContactButtonDim]}
+              onPress={() => {
+                const n = contactName.trim();
+                const p = contactPhone.trim();
+                if (!n || !p) {
+                  Alert.alert(
+                    'Need name and phone',
+                    `Fill in:${n ? '' : '\n  • Name'}${p ? '' : '\n  • Phone'}\n\nThen tap "Save contact" again.`
+                  );
+                  return;
+                }
+                setContacts([...contacts, {
+                  id: `contact-${Date.now()}`,
+                  name: n,
+                  relationship: contactRelationship.trim(),
+                  phone: p,
+                  isPrimary: contacts.length === 0,
+                }]);
+                setContactName('');
+                setContactRelationship('');
+                setContactPhone('');
+              }}
+            >
+              <Text style={styles.addContactButtonText}>
+                {contacts.length === 0 ? 'Save contact' : 'Save & add another'}
+              </Text>
+            </TouchableOpacity>
+
             <View style={styles.row}>
-              <SecondaryButton onPress={skip}>Skip</SecondaryButton>
-              <PrimaryButton onPress={advance} disabled={!contactName.trim() || !contactPhone.trim()}>Next</PrimaryButton>
+              <SecondaryButton onPress={skip}>
+                {contacts.length === 0 ? 'Skip — add later' : 'Done — continue'}
+              </SecondaryButton>
+              <PrimaryButton
+                onPress={advance}
+                disabled={contacts.length === 0 && (!contactName.trim() || !contactPhone.trim())}
+              >
+                Next
+              </PrimaryButton>
             </View>
+            {contacts.length === 0 && (!contactName.trim() || !contactPhone.trim()) ? (
+              <Text style={styles.smallHint}>
+                Fill name + phone, then tap "Save contact" — or tap "Skip" to add contacts later in Settings.
+              </Text>
+            ) : null}
           </Step>
         )}
 
@@ -291,7 +381,30 @@ function SecondaryButton({ onPress, children }: any) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F4F4F4' },
   container: { padding: 24, paddingTop: 40 },
-  step: { gap: 16 },
+  step: { gap: 12 },
+  smallHint: { fontSize: 13, color: '#777', lineHeight: 18, marginTop: 4 },
+  savedList: { gap: 8, marginBottom: 10 },
+  savedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E0F7F6',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#4ECDC4',
+  },
+  savedName: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
+  savedMeta: { fontSize: 14, color: '#444', marginTop: 4 },
+  removeText: { color: '#C62828', fontSize: 14, fontWeight: '600' },
+  addContactButton: {
+    backgroundColor: '#00897B',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  addContactButtonDim: { opacity: 0.55 },
+  addContactButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   stepTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
   stepSubtitle: { fontSize: 18, color: '#555', lineHeight: 26, marginBottom: 8 },
   label: { fontSize: 18, color: '#333', fontWeight: '600' },
