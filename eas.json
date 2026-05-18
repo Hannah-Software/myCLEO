@@ -53,6 +53,23 @@
         "buildConfiguration": "Release"
       }
     },
+    "companion-test": {
+      "extends": "base",
+      "distribution": "internal",
+      "channel": "companion-test",
+      "env": {
+        "EXPO_PUBLIC_BRIDGE_URL": "http://100.64.218.73:8765",
+        "EXPO_PUBLIC_TEST_PROFILES": "1"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
+      }
+    },
     "production": {
       "extends": "base",
       "channel": "production",

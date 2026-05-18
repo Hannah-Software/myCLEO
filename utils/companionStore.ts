@@ -11,11 +11,13 @@
  * sync, when enabled, mirrors the local state outbound — never the source
  * of truth for what the patient sees.
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { profileStorage, profileSecure } from './profileStorage';
 
 const STORE_KEY = '@companion/config/v1';
 
-export type Language = 'en' | 'es';
+// Re-export so existing imports keep working; canonical source is companionI18n.
+import type { Language } from './companionI18n';
+export type { Language };
 
 export interface Contact {
   id: string;
@@ -80,7 +82,7 @@ const DEFAULT_CONFIG: CompanionConfig = {
 
 export async function loadConfig(): Promise<CompanionConfig> {
   try {
-    const raw = await AsyncStorage.getItem(STORE_KEY);
+    const raw = await profileStorage.getItem(STORE_KEY);
     if (!raw) return { ...DEFAULT_CONFIG };
     const parsed = JSON.parse(raw);
     // Merge over defaults so newly-added fields land with sensible values
@@ -91,7 +93,7 @@ export async function loadConfig(): Promise<CompanionConfig> {
 }
 
 export async function saveConfig(config: CompanionConfig): Promise<void> {
-  await AsyncStorage.setItem(STORE_KEY, JSON.stringify(config));
+  await profileStorage.setItem(STORE_KEY, JSON.stringify(config));
 }
 
 export async function patchConfig(
@@ -104,7 +106,7 @@ export async function patchConfig(
 }
 
 export async function resetConfig(): Promise<void> {
-  await AsyncStorage.removeItem(STORE_KEY);
+  await profileStorage.removeItem(STORE_KEY);
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -131,7 +133,7 @@ export async function markDoseTaken(
   takenAt: Date = new Date()
 ): Promise<void> {
   const dateStr = takenAt.toISOString().slice(0, 10);
-  await AsyncStorage.setItem(
+  await profileStorage.setItem(
     DOSE_TAKEN_KEY(medicationId, dateStr, scheduledFor),
     takenAt.toISOString()
   );
@@ -143,7 +145,7 @@ export async function isDoseTaken(
   date: Date = new Date()
 ): Promise<boolean> {
   const dateStr = date.toISOString().slice(0, 10);
-  const v = await AsyncStorage.getItem(DOSE_TAKEN_KEY(medicationId, dateStr, scheduledFor));
+  const v = await profileStorage.getItem(DOSE_TAKEN_KEY(medicationId, dateStr, scheduledFor));
   return v !== null;
 }
 
@@ -180,26 +182,23 @@ export async function computeTodayDoses(
 }
 
 // ───────────────────────────────────────────────────────────────────
-// Caregiver PIN — stored in expo-secure-store, not AsyncStorage.
-// Imported lazily so the rest of this module stays safe on web.
+// Caregiver PIN — stored in expo-secure-store via profileSecure so each
+// profile has its own PIN. (v0.2 — IVA-1184)
 // ───────────────────────────────────────────────────────────────────
 
 const PIN_KEY = 'companion.caregiverPin.v1';
 
 export async function setCaregiverPin(pin: string): Promise<void> {
-  const secure = await import('expo-secure-store');
-  await secure.setItemAsync(PIN_KEY, pin);
+  await profileSecure.setItemAsync(PIN_KEY, pin);
   await patchConfig({ caregiverHasSetPin: true });
 }
 
 export async function verifyCaregiverPin(pin: string): Promise<boolean> {
-  const secure = await import('expo-secure-store');
-  const stored = await secure.getItemAsync(PIN_KEY);
+  const stored = await profileSecure.getItemAsync(PIN_KEY);
   return stored !== null && stored === pin;
 }
 
 export async function caregiverPinExists(): Promise<boolean> {
-  const secure = await import('expo-secure-store');
-  const stored = await secure.getItemAsync(PIN_KEY);
+  const stored = await profileSecure.getItemAsync(PIN_KEY);
   return stored !== null;
 }

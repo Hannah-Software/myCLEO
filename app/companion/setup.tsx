@@ -26,17 +26,17 @@ import { t } from '../../utils/companionI18n';
 import { scheduleMedicationReminders } from '../../utils/companionNotifications';
 
 type Step =
-  | 'language' | 'name' | 'home' | 'photo'
+  | 'name' | 'home' | 'photo'
   | 'contact' | 'medication' | 'pin' | 'done';
 
-const STEPS: Step[] = ['language','name','home','photo','contact','medication','pin','done'];
+const STEPS: Step[] = ['name','home','photo','contact','medication','pin','done'];
 
 export default function SetupWizard() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('language');
+  const [step, setStep] = useState<Step>('name');
 
-  // Working draft of config
-  const [language, setLanguage] = useState<Language>('en');
+  // English-only in v0.2 — language picker removed from the wizard.
+  const language: Language = 'en';
   const [patientName, setPatientName] = useState('');
   const [preferredGreetingName, setPreferredGreetingName] = useState('');
   const [homeLocation, setHomeLocation] = useState('');
@@ -129,17 +129,6 @@ export default function SetupWizard() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        {step === 'language' && (
-          <Step title="Setup — Welcome" subtitle={t(language, 'setup_welcome')}>
-            <Text style={styles.label}>{t(language, 'setup_what_language')}</Text>
-            <View style={styles.row}>
-              <Choice label="English" active={language === 'en'} onPress={() => setLanguage('en')} />
-              <Choice label="Español" active={language === 'es'} onPress={() => setLanguage('es')} />
-            </View>
-            <PrimaryButton onPress={advance}>Next</PrimaryButton>
-          </Step>
-        )}
-
         {step === 'name' && (
           <Step title="Setup — Name" subtitle={t(language, 'setup_who_is_this')}>
             <TextInput

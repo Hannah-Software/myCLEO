@@ -12,7 +12,10 @@
  *   - Self-orienting. Today's date, the patient's name, where she is,
  *     who Ivan/Kerri are. Cognitive scaffolding, not novelty.
  */
-import type { Language } from './companionStore';
+
+// English-only in v0.2 (IVA-1184). Spanish strings deferred; the t() API
+// and the Language type alias stay so adding ES back is a one-file change.
+export type Language = 'en';
 
 export type I18nKey =
   | 'greeting_morning'
@@ -127,7 +130,7 @@ const STRINGS: Record<Language, Record<I18nKey, string>> = {
     months_november: 'November',
     months_december: 'December',
   },
-  es: {
+  _es_dead: {
     greeting_morning: 'Buenos días',
     greeting_afternoon: 'Buenas tardes',
     greeting_evening: 'Buenas tardes',
@@ -183,7 +186,12 @@ const STRINGS: Record<Language, Record<I18nKey, string>> = {
     months_november: 'noviembre',
     months_december: 'diciembre',
   },
-};
+} as Record<string, Record<I18nKey, string>>;
+// NOTE: the `_es_dead` block above is ignored at runtime — the t() function
+// only reads STRINGS['en']. Kept in source so a future PR restoring Spanish
+// support can rename the key back to 'es' and uncomment the toggle in
+// app/companion/setup.tsx + app/companion/settings.tsx. v0.2 ships English-only
+// per IVA-1184.
 
 export function t(lang: Language, key: I18nKey, vars: Record<string, string | number> = {}): string {
   let s = STRINGS[lang][key] || STRINGS.en[key] || key;
@@ -208,7 +216,6 @@ export function formatLocalDate(lang: Language, date: Date = new Date()): string
   const month = t(lang, MONTHS[date.getMonth()]);
   const dayNum = date.getDate();
   const year = date.getFullYear();
-  if (lang === 'es') return `${day}, ${dayNum} de ${month} de ${year}`;
   return `${day}, ${month} ${dayNum}, ${year}`;
 }
 
@@ -220,6 +227,6 @@ export function greetingFor(lang: Language, date: Date = new Date()): I18nKey {
   return 'greeting_night';
 }
 
-export function ttsLocale(lang: Language): string {
-  return lang === 'es' ? 'es-MX' : 'en-US';
+export function ttsLocale(_lang: Language): string {
+  return 'en-US';
 }

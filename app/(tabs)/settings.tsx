@@ -9,8 +9,10 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { bridgeClient, BRIDGE_URL, getBridgeApiKey, ProbeResult } from '@/utils/bridge-client';
 import { setStoredApiKey, clearStoredApiKey } from '@/utils/bridge-auth';
+import { getActiveProfile, isTestMode, Profile } from '@/utils/profileRegistry';
 
 interface Config {
   user?: { name?: string; timezone?: string };
@@ -25,6 +27,8 @@ function maskKey(key: string | null): string {
 }
 
 export default function SettingsScreen() {
+  const router = useRouter();
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +54,7 @@ export default function SettingsScreen() {
     };
 
     fetchConfig();
+    getActiveProfile().then(setActiveProfile).catch(() => setActiveProfile(null));
   }, []);
 
   const onSaveKey = async () => {
@@ -126,6 +131,25 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container}>
+      {isTestMode() && activeProfile ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Profile</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Active</Text>
+            <Text style={styles.value}>{activeProfile.name} ({activeProfile.kind})</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.probeButton, { marginTop: 10 }]}
+            onPress={() => router.push('/profiles/pick')}
+          >
+            <Text style={styles.keyButtonText}>Switch profile</Text>
+          </TouchableOpacity>
+          <Text style={[styles.footnote, { marginTop: 8 }]}>
+            Test mode is on (EXPO_PUBLIC_TEST_PROFILES=1). Each profile keeps its own data, settings, and reminders.
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>User Profile</Text>
         <View style={styles.row}>

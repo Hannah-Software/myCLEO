@@ -11,7 +11,7 @@
  * RequestOptions flag in bridge-client.
  */
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { profileStorage } from "./profileStorage";
 import { BRIDGE_URL, BRIDGE_API_KEY_HEADER, getBridgeApiKey } from "./bridge-client";
 
 const STORAGE_KEY = "cleo.offline.queue.v1";
@@ -33,7 +33,7 @@ function makeId() {
 
 async function readQueue(): Promise<QueueItem[]> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await profileStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -43,7 +43,7 @@ async function readQueue(): Promise<QueueItem[]> {
 }
 
 async function writeQueue(items: QueueItem[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  await profileStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
 export async function enqueueWrite(
@@ -70,7 +70,7 @@ export async function getQueue(): Promise<QueueItem[]> {
 }
 
 export async function clearQueue(): Promise<void> {
-  await AsyncStorage.removeItem(STORAGE_KEY);
+  await profileStorage.removeItem(STORAGE_KEY);
 }
 
 async function attemptItem(item: QueueItem): Promise<{ ok: boolean; error?: string }> {

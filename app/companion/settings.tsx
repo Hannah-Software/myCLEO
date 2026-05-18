@@ -22,6 +22,7 @@ import {
   scheduleMedicationReminders, clearScheduledMedicationReminders,
 } from '../../utils/companionNotifications';
 import { t } from '../../utils/companionI18n';
+import { getActiveProfile, isTestMode, Profile } from '../../utils/profileRegistry';
 
 export default function CaregiverSettings() {
   const router = useRouter();
@@ -96,6 +97,7 @@ export default function CaregiverSettings() {
         </TouchableOpacity>
       </View>
 
+      <ProfileSection router={router} />
       <IdentitySection config={config} save={save} />
       <ContactsSection config={config} save={save} />
       <FamilySection config={config} save={save} />
@@ -112,6 +114,32 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <Text style={styles.sectionLabel}>{title}</Text>
       {children}
     </View>
+  );
+}
+
+function ProfileSection({ router }: any) {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  useEffect(() => {
+    getActiveProfile().then(setProfile).catch(() => setProfile(null));
+  }, []);
+  if (!isTestMode() || !profile) return null;
+  return (
+    <Section title="Profile">
+      <View style={styles.itemRow}>
+        <Text style={styles.fieldLabel}>Active</Text>
+        <Text style={{ fontSize: 16, color: '#1a1a1a', fontWeight: '600' }}>{profile.name}</Text>
+      </View>
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => router.push('/profiles/pick')}
+      >
+        <Ionicons name="swap-horizontal" size={20} color="#fff" />
+        <Text style={styles.addButtonText}>Switch profile</Text>
+      </TouchableOpacity>
+      <Text style={{ fontSize: 13, color: '#888', marginTop: 8 }}>
+        Test mode is on. Each profile keeps its own data, settings, and reminders.
+      </Text>
+    </Section>
   );
 }
 
@@ -260,22 +288,6 @@ function PreferencesSection({ config, save }: any) {
   return (
     <Section title="Preferences">
       <View style={styles.itemRow}>
-        <Text style={styles.fieldLabel}>Language</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {(['en','es'] as const).map(l => (
-            <TouchableOpacity
-              key={l}
-              onPress={() => save({ language: l })}
-              style={[styles.choice, config.language === l && styles.choiceActive]}
-            >
-              <Text style={[styles.choiceText, config.language === l && styles.choiceTextActive]}>
-                {l === 'en' ? 'English' : 'Español'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-      <View style={styles.itemRow}>
         <Text style={styles.fieldLabel}>Auto-speak Today card</Text>
         <Switch value={config.ttsAutoSpeak} onValueChange={(v) => save({ ttsAutoSpeak: v })} />
       </View>
@@ -283,6 +295,9 @@ function PreferencesSection({ config, save }: any) {
         <Text style={styles.fieldLabel}>Bridge sync (advanced)</Text>
         <Switch value={config.bridgeSyncEnabled} onValueChange={(v) => save({ bridgeSyncEnabled: v })} />
       </View>
+      <Text style={{ fontSize: 13, color: '#888', marginTop: 8 }}>
+        Spanish is coming in a later release; English only for now.
+      </Text>
     </Section>
   );
 }
