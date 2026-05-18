@@ -34,7 +34,7 @@ export const useCalendarEvents = () => {
         isAllDay: false,
         calendar: 'primary',
         isDeclined: false,
-      )));
+      }));
       
       // Use real data from bridge (empty list is OK, no mock fallback)
       setEvents(mappedEvents);
