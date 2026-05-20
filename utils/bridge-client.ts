@@ -193,6 +193,11 @@ class BridgeClient {
     return this.request("/alerts");
   }
 
+  // Life domains (sibling repos surfaced through the bridge — MLOG, etc.)
+  async getMlogDomain() {
+    return this.request("/v1/domains/mlog");
+  }
+
   // Documents
   async getDocuments() {
     return this.request("/documents");

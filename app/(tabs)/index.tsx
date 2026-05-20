@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useProactiveAlerts } from '../../hooks/useProactiveAlerts';
 import { useLatestBriefing } from '../../hooks/useLatestBriefing';
 import { BRIDGE_URL } from '../../utils/bridge-client';
+import { MlogCampingCard } from '../../components/MlogCampingCard';
 
 type Phase = 'A' | 'B' | 'C' | 'D' | 'E';
 
@@ -142,6 +143,9 @@ export default function CheckInScreen() {
           </Text>
         </View>
       )}
+
+      {/* MLOG (camping/production) life-domain card */}
+      <MlogCampingCard />
 
       {/* Current Phase Display */}
       <View style={[styles.phaseCard, { backgroundColor: currentPhaseColor }]}>
