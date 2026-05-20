@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { bridgeClient, BRIDGE_URL, getBridgeApiKey, ProbeResult } from '@/utils/bridge-client';
 import { setStoredApiKey, clearStoredApiKey } from '@/utils/bridge-auth';
+import { UpgradeButton } from '@/components/UpgradeButton';
 
 interface Config {
   user?: { name?: string; timezone?: string };
@@ -265,6 +266,8 @@ export default function SettingsScreen() {
           differentiates "key wrong" (401) from "daemon down" (timeout).
         </Text>
       </View>
+
+      <UpgradeButton />
 
       <View style={styles.section}>
         <Text style={styles.footnote}>

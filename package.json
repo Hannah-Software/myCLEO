@@ -1,6 +1,6 @@
 {
   "name": "myCLEO",
-  "description": "myCLEO — Your Co-Life CEO. Consumer mobile app packaging CLEO as personal life OS.",
+  "description": "myCLEO \u2014 Your Co-Life CEO. Consumer mobile app packaging CLEO as personal life OS.",
   "version": "0.0.1",
   "main": "expo-router/entry",
   "scripts": {
@@ -26,6 +26,7 @@
     "expo-secure-store": "~13.0.2",
     "expo-speech": "~12.0.2",
     "expo-sqlite": "~14.0.6",
+    "expo-updates": "~0.25.28",
     "react": "18.2.0",
     "react-native": "0.74.5"
   },
