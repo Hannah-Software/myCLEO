@@ -1,0 +1,22 @@
+{
+  "linear_team": "IVA",
+  "linear_team_id": "0b354535-05b5-46cd-826e-d627e5cf0550",
+  "linear_project": "myCLEO",
+  "asana_project_name": "myCLEO",
+  "asana_workspace_gid": "1213725282099683",
+  "asana_project_gid": "1214158831619829",
+  "artifact_dirs": ["docs/", "output/"],
+  "artifact_extensions": [".html", ".md", ".txt", ".docx", ".pptx"],
+  "priority_labels": {
+    "P0": "P0 Critical",
+    "P1": "P1 High",
+    "P2": "P2 Medium",
+    "P3": "P3 Low"
+  },
+  "sprint_duration_weeks": {
+    "Sprint 1": 2,
+    "Sprint 2": 4,
+    "Sprint 3": 4,
+    "Backlog": 8
+  }
+}
