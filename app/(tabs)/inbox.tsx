@@ -1,19 +1,53 @@
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useGmailActionItems } from '../../hooks/useGmailActionItems';
+import { useSiblingEvents } from '../../hooks/useSiblingEvents';
+import type { SiblingEvent } from '../../utils/bridge-client';
 import { useState } from 'react';
 
 type UrgencyFilter = 'all' | 'high' | 'medium' | 'low';
 
 export default function InboxScreen() {
+  const router = useRouter();
   const { items, loading, refresh } = useGmailActionItems();
+  const {
+    events: mlogEvents,
+    refresh: refreshMlogEvents,
+    ack: ackMlogEvent,
+  } = useSiblingEvents({ source_repo: 'MLOG' });
   const [refreshing, setRefreshing] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>('all');
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refresh();
+    await Promise.all([refresh(), refreshMlogEvents()]);
     setRefreshing(false);
+  };
+
+  const onMlogEventPress = (event: SiblingEvent) => {
+    ackMlogEvent(event.id);
+    router.push('/camping');
+  };
+
+  const mlogEventLabel = (event: SiblingEvent): string => {
+    // "MLOG.watch_match" → "Watch match"; "MLOG.foo_bar" → "Foo bar".
+    const tail = event.event_type.includes('.')
+      ? event.event_type.split('.').slice(1).join('.')
+      : event.event_type;
+    const words = tail.replace(/_/g, ' ').trim();
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  };
+
+  const mlogEventSummary = (event: SiblingEvent): string => {
+    const p = event.payload || {};
+    // Prefer the most common human-readable fields if present.
+    const candidates = ['summary', 'title', 'message', 'description', 'name'];
+    for (const k of candidates) {
+      const v = (p as Record<string, unknown>)[k];
+      if (typeof v === 'string' && v.trim().length > 0) return v;
+    }
+    return '';
   };
 
   const filteredItems = urgencyFilter === 'all' ? items : items.filter(i => i.urgency === urgencyFilter);
@@ -121,6 +155,55 @@ export default function InboxScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Camping / MLOG events */}
+      {mlogEvents.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.mlogHeader}>
+            <Ionicons name="bonfire-outline" size={18} color="#2a8f4a" />
+            <Text style={styles.sectionTitle}>
+              {' '}Camping / MLOG ({mlogEvents.length})
+            </Text>
+          </View>
+          <View style={styles.itemsList}>
+            {mlogEvents.map((event, index) => {
+              const summary = mlogEventSummary(event);
+              return (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.itemCard, index > 0 && styles.itemCardBorder]}
+                  onPress={() => onMlogEventPress(event)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.urgencyBar, { backgroundColor: '#2a8f4a' }]} />
+                  <View style={styles.itemContent}>
+                    <View style={styles.itemHeader}>
+                      <View style={styles.actionTypeBadge}>
+                        <Text style={styles.mlogTagEmoji}>🏕️</Text>
+                        <Text style={[styles.actionTypeLabel, { color: '#2a8f4a' }]}>
+                          {mlogEventLabel(event)}
+                        </Text>
+                      </View>
+                      <Text style={styles.itemTime}>{timeAgo(event.occurred_at)}</Text>
+                    </View>
+                    {summary ? (
+                      <Text style={styles.itemSubject} numberOfLines={2}>
+                        {summary}
+                      </Text>
+                    ) : null}
+                    <View style={styles.actionButton}>
+                      <Ionicons name="chevron-forward" size={16} color="#2a8f4a" />
+                      <Text style={[styles.actionButtonText, { color: '#2a8f4a' }]}>
+                        Open camping
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {/* Action Items */}
       <View style={styles.section}>
@@ -257,6 +340,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     marginBottom: 12,
+  },
+  mlogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  mlogTagEmoji: {
+    fontSize: 12,
   },
   loadingText: {
     fontSize: 14,
