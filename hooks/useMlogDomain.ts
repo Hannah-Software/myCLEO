@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { bridgeClient } from '../utils/bridge-client';
+import { loadCachedMlog, saveCachedMlog } from '../utils/mlog-cache';
 
 // Shape served by CLEO bridge GET /v1/domains/mlog (the MLOG sibling adapter
 // snapshot). All fields optional/defensive — the bridge may be on an older
@@ -54,6 +55,7 @@ export function useMlogDomain() {
   const [domain, setDomain] = useState<MlogDomain | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   const fetchDomain = useCallback(async () => {
     setLoading(true);
@@ -62,23 +64,42 @@ export function useMlogDomain() {
       const data = (await bridgeClient.getMlogDomain()) as MlogDomain;
       if (data && typeof data === 'object') {
         setDomain(data);
+        setCachedAt(null);
+        // Persist for offline rendering on next launch.
+        saveCachedMlog(data).catch((e) =>
+          console.warn('[mlog domain] cache write failed:', e)
+        );
       }
     } catch (err) {
       // 404 = bridge not yet on the /v1/domains build; treat as "no data" not a hard error
       console.warn('[mlog domain] fetch failed:', err);
       setError('MLOG domain unavailable');
-      setDomain(null);
+      // Do NOT clear `domain` here — if we already hydrated from cache,
+      // keep showing the stale snapshot rather than going blank.
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Hydrate from cache on mount so the card renders offline before (or instead
+  // of) the live fetch resolves. Fire the network fetch right after.
   useEffect(() => {
-    fetchDomain();
+    let cancelled = false;
+    (async () => {
+      const cached = await loadCachedMlog();
+      if (!cancelled && cached && !domain) {
+        setDomain(cached.domain);
+        setCachedAt(cached.cached_at);
+      }
+      if (!cancelled) await fetchDomain();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchDomain]);
 
   // Convenience accessor for the production_systems block
   const systems = domain?.payload?.production_systems;
 
-  return { domain, systems, loading, error, refetch: fetchDomain };
+  return { domain, systems, loading, error, cachedAt, refetch: fetchDomain };
 }

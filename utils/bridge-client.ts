@@ -198,6 +198,34 @@ class BridgeClient {
     return this.request("/v1/domains/mlog");
   }
 
+  // Sibling events feed (CLEO bridge /v1/events). MLOG.watch_match and other
+  // namespaced repo.event_type rows land here; the Inbox surfaces them.
+  async getSiblingEvents(
+    opts: {
+      source_repo?: string;
+      event_type?: string;
+      consumed?: boolean;
+      limit?: number;
+    } = {}
+  ): Promise<SiblingEventListResponse> {
+    const qs = new URLSearchParams();
+    if (opts.source_repo) qs.set("source_repo", opts.source_repo);
+    if (opts.event_type) qs.set("event_type", opts.event_type);
+    if (typeof opts.consumed === "boolean") qs.set("consumed", String(opts.consumed));
+    if (typeof opts.limit === "number") qs.set("limit", String(opts.limit));
+    const q = qs.toString();
+    return this.request<SiblingEventListResponse>(
+      `/v1/events${q ? `?${q}` : ""}`
+    );
+  }
+
+  async ackSiblingEvent(id: number | string) {
+    return this.request(`/v1/events/${id}/ack`, {
+      method: "POST",
+      enqueueOnFailure: true,
+    });
+  }
+
   // Documents
   async getDocuments() {
     return this.request("/documents");
@@ -352,6 +380,22 @@ export interface ProbeResult {
   status?: number;
   latencyMs: number;
   error?: string;
+}
+
+export interface SiblingEvent {
+  id: number;
+  source_repo: string;
+  event_type: string;
+  occurred_at: string;
+  received_at: string;
+  payload: Record<string, unknown>;
+  idempotency_key?: string | null;
+  consumed_at?: string | null;
+  consumed_by?: string | null;
+}
+
+export interface SiblingEventListResponse {
+  items: SiblingEvent[];
 }
 
 export const bridgeClient = new BridgeClient();
