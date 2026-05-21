@@ -79,3 +79,63 @@ Wrapped up the MLOG life-domain feature in myCLEO by building the consumer side 
 ### Context
 
 This session closes the loop on the MLOG life-domain feature in myCLEO. Layer 1 (CLEO `/v1/domains/mlog` bridge endpoint, PR #68 in CLEO) and Layer 2 (myCLEO Home camping card + detail screen, PRs #21–#23) were built last week from an MLOG-rooted session using cross-repo worktrees. Per the 2026-05-20 handoff doc (`docs/HANDOFF_MLOG_DOMAIN_2026-05-20.md`), Layer 3 was deliberately left for a myCLEO-rooted session to un-blur repo ownership — this session is that one. The cross-repo boundary held: myCLEO only reads the two documented bridge endpoints (`/v1/domains/mlog`, `/v1/events`); no reach into MLOG or CLEO working trees. Next on-device step is Ivan publishing OTA via `eas update --branch preview` and visually verifying the card + new Inbox section on his phone.
+
+---
+
+## 2026-05-20 ~10:15 PM — /roadmap close-out (Linear + Asana sync for myCLEO)
+
+| Metric | Value |
+|--------|-------|
+| **Date/Time** | 2026-05-20 ~10:15 PM EST |
+| **Session Title** | /roadmap sync — file follow-ups, populate Asana sprints |
+| **Chat Messages** | ~3 user prompts, ~6 responses (continuation of IVA-1200 session) |
+| **PRs Shipped** | #25 (workdone log), #26 (roadmap config + audit) |
+| **Linear Tickets Filed** | 3 (IVA-1201, IVA-1202, IVA-1203) |
+| **Asana Tasks Synced** | 9 created across 4 sprint sections |
+| **New Lines of Code** | +113 / -1 (workdone log + roadmap.json + audit) |
+| **New Tests Added** | None — config + docs only |
+| **Tests in CI** | N/A — repo has no GitHub Actions workflows |
+
+### Scope
+
+Wrapped the IVA-1200 session with `/roadmap` close-out. Filed 3 forward-looking tickets in Linear myCLEO, synced the project to Asana with sprint sections + dated tasks, and committed the roadmap config file + HTML/dashboard audit so future `/roadmap` runs in this repo don't need to rediscover the project ids.
+
+### Changes
+
+#### PR #25 — chore: append IVA-1200 entry to WorkDoneSummary.md
+The session log itself, before the roadmap close-out started.
+
+#### PR #26 — chore(roadmap): sync Linear myCLEO + Asana sprints
+- `.claude/roadmap.json` — Linear team IVA, project myCLEO (id `4650694c-a3e1-4ccf-9be3-997b78ac51c0`), Asana workspace `1213725282099683` / project gid `1214158831619829`
+- `docs/audits/20260521_HTML_UPDATE_AUDIT-myCLEO.md` — required per Repo Documentation Standard §6; no HTML dashboards in this repo
+
+### Linear Tickets Filed
+
+| ID | Pri | Title |
+|----|-----|-------|
+| IVA-1201 | P1 | OTA-publish IVA-1200 to preview + on-device verification |
+| IVA-1202 | P3 | MlogCampingCard — surface "cached" indicator when rendering from offline snapshot |
+| IVA-1203 | P3 | Symlink skill files to claude-hub canonical |
+
+### Verification
+
+- Linear: all 3 `issueCreate` mutations returned `success: true` with identifiers
+- Asana: `asana_sync.py` reported `9 created, 0 updated` against project gid `1214158831619829`
+- Standards validator: 18 pre-existing missing-docs-folder gaps + 8 tracked-skill-copy drift findings — none introduced this session; skill drift now ticketed as IVA-1203
+
+### Key Decisions
+
+| Decision | Chosen | Alternatives Considered | Why |
+|----------|--------|------------------------|-----|
+| Linear ticket creation transport | Standalone Python script via `doppler run -- python3 <<PY` heredoc with native `json.dumps()` | Inline bash with `$(python3 -c …)` for per-field JSON escaping | First attempt (inline bash) returned HTTP 500 three times — shell-side escaping of multi-line markdown descriptions broke the GraphQL variables JSON. Moving the entire body construction into Python with one `json.dumps()` fixed it on the first retry |
+| Standards-validator failures handling | Note in commit message + Phase 8 confirm; do NOT block | Halt and bootstrap all 18 missing folders before commit | The gaps predate this session (myCLEO has never been compliant), the repo has no CI gating on the standards workflow, and bootstrapping would balloon the PR scope. Filed IVA-1203 for skill drift; remaining doc-folder gaps are their own future ticket |
+| Asana sprint task effort default | 7-day window per task, evenly staggered within each sprint | Per-task effort (S/M/L/XL) based on Linear estimate | Linear issues didn't carry estimate fields populated; even staggering produces a clean Gantt view without requiring manual effort calls |
+
+### Locked Settings & Configurations
+
+- **myCLEO Linear project id** — `4650694c-a3e1-4ccf-9be3-997b78ac51c0`, stored in `.claude/roadmap.json`. Locked because: future `/roadmap` runs need this to query the right project's issues without rediscovering it
+- **myCLEO Asana project gid** — `1214158831619829`, stored in `.claude/roadmap.json`. Locked because: `asana_sync.py` matches the project by gid; without this, it would either create a duplicate or fail to find the existing project
+
+### Context
+
+This is the close-out half of the same chat session as the IVA-1200 entry above. Two split entries (rather than one merged) because (a) the IVA-1200 entry was committed in PR #25 before the roadmap work started, and (b) the roadmap work is independent housekeeping rather than feature work. Ivan's next on-device step (OTA publish) is now formally tracked as IVA-1201.
